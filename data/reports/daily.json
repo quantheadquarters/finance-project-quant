@@ -1,6 +1,6 @@
 {
-  "started_at": "2026-08-07T23:49:25.032767+00:00",
-  "finished_at": "2026-08-07T23:49:26.718870+00:00",
+  "started_at": "2026-08-08T23:03:34.824528+00:00",
+  "finished_at": "2026-08-08T23:03:36.309856+00:00",
   "total": 7,
   "ok": 7,
   "errors": 0,
@@ -11,7 +11,7 @@
       "market": "crypto",
       "status": "ok",
       "error": null,
-      "duration_ms": 65.5,
+      "duration_ms": 51.5,
       "direction": "neutral",
       "confidence": 0.0
     },
@@ -20,70 +20,69 @@
       "market": "crypto",
       "status": "ok",
       "error": null,
-      "duration_ms": 63.2,
+      "duration_ms": 29.9,
       "direction": "bullish",
-      "confidence": 0.1594
+      "confidence": 0.1566
     },
     {
       "asset": "SOL",
       "market": "crypto",
       "status": "ok",
       "error": null,
-      "duration_ms": 52.2,
-      "direction": "bearish",
-      "confidence": 0.4483
+      "duration_ms": 29.0,
+      "direction": "neutral",
+      "confidence": 0.0
     },
     {
       "asset": "AAPL",
       "market": "us_equity",
       "status": "ok",
       "error": null,
-      "duration_ms": 1244.9,
+      "duration_ms": 978.9,
       "direction": "bearish",
-      "confidence": 0.2315
+      "confidence": 0.2314
     },
     {
       "asset": "MSFT",
       "market": "us_equity",
       "status": "ok",
       "error": null,
-      "duration_ms": 78.3,
+      "duration_ms": 129.2,
       "direction": "bullish",
-      "confidence": 0.3819
+      "confidence": 0.3822
     },
     {
       "asset": "GOOGL",
       "market": "us_equity",
       "status": "ok",
       "error": null,
-      "duration_ms": 100.6,
+      "duration_ms": 119.9,
       "direction": "bullish",
-      "confidence": 0.4537
+      "confidence": 0.4534
     },
     {
       "asset": "NVDA",
       "market": "us_equity",
       "status": "ok",
       "error": null,
-      "duration_ms": 80.2,
+      "duration_ms": 145.9,
       "direction": "bullish",
-      "confidence": 0.4913
+      "confidence": 0.4915
     }
   ],
   "portfolio": {
     "signal_count": 7,
-    "directional_count": 6,
-    "net_bias": 0.3723,
+    "directional_count": 5,
+    "net_bias": 0.7302,
     "direction": "bullish",
     "conviction_weights": {
-      "ETH": 0.0736,
-      "SOL": 0.207,
-      "AAPL": 0.1069,
-      "MSFT": 0.1763,
-      "GOOGL": 0.2095,
-      "NVDA": 0.2268
+      "ETH": 0.0913,
+      "AAPL": 0.1349,
+      "MSFT": 0.2228,
+      "GOOGL": 0.2644,
+      "NVDA": 0.2866
     },
-    "diversification_score": 0.7601,
+    "diversification_score": 0.8136,
     "concentration_flags": [],
     "correlations": {
       "assets": [
@@ -91,8 +90,7 @@
         "ETH",
         "GOOGL",
         "MSFT",
-        "NVDA",
-        "SOL"
+        "NVDA"
       ],
       "window": 30,
       "matrix": [
@@ -101,47 +99,34 @@
           -0.0254,
           -0.2731,
           -0.0742,
-          -0.3137,
-          -0.1424
+          -0.3137
         ],
         [
           -0.0254,
           1.0,
-          0.3159,
-          -0.1405,
-          0.3087,
-          0.8544
+          0.3156,
+          -0.141,
+          0.3095
         ],
         [
           -0.2731,
-          0.3159,
+          0.3156,
           1.0,
           0.1677,
-          0.2106,
-          0.3501
+          0.2106
         ],
         [
           -0.0742,
-          -0.1405,
+          -0.141,
           0.1677,
           1.0,
-          0.0328,
-          -0.0899
+          0.0328
         ],
         [
           -0.3137,
-          0.3087,
+          0.3095,
           0.2106,
           0.0328,
-          1.0,
-          0.2992
-        ],
-        [
-          -0.1424,
-          0.8544,
-          0.3501,
-          -0.0899,
-          0.2992,
           1.0
         ]
       ]
