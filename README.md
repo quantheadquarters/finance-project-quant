@@ -14,6 +14,12 @@ would be wrong.
 captured. Re-record with `vhs demo/demo.tape`. The numbers are whatever the
 engine returns on the day it runs — including the ones saying it found nothing.*
 
+There is a web app too — `./start.sh` sets everything up and opens it:
+
+**[▶ Watch the app walkthrough](demo/alpha-engine-app.mp4)** *(72s — dashboard,
+plain-English explainers on every metric, signal feed, and the bring-your-own-key
+AI terminal. Re-record with `python demo/record_app.py`.)*
+
 > ## ⚠️ Research only
 >
 > **This is not financial advice.** It is not a recommendation and not a

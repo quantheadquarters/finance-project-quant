@@ -79,3 +79,36 @@ def test_build_dashboard_payload_scores_records(tmp_path):
     assert payload["latest_signals"][0]["asset"] == "BTC"
     assert payload["outcomes"]["resolved"] == 1
     assert payload["outcomes"]["hit_rate"] == 1.0
+
+
+def test_dashboard_withholds_headline_figures_on_a_partial_sample(tmp_path, monkeypatch):
+    """The dashboard is the most visible consumer of the track record: the hit
+    rate renders as a headline tile. It must apply the same coverage rule as
+    `record-stats` and the toolkit, or the one surface a person actually looks
+    at is the one that quietly shows a biased number.
+
+    This was missed when the rule was first added to the other two callers.
+    """
+    from alpha_engine.validation.outcomes import annotate_coverage
+
+    # Well covered: both headline figures survive.
+    full = annotate_coverage(
+        {"hit_rate": 0.305, "avg_realized_return": 0.0132},
+        total=339,
+        scored=339,
+        missing_assets=[],
+    )
+    assert full["hit_rate"] == 0.305
+    assert full["avg_realized_return"] == 0.0132
+
+    # Badly covered: BOTH are withheld. The average return is the more fragile
+    # of the two — the biased subset flipped its sign on 2026-08-31.
+    partial = annotate_coverage(
+        {"hit_rate": 0.1184, "avg_realized_return": -0.0192},
+        total=339,
+        scored=99,
+        missing_assets=["ETH", "SOL"],
+    )
+    assert partial["hit_rate"] is None
+    assert partial["avg_realized_return"] is None
+    assert "ETH" in partial["hit_rate_suppressed"]

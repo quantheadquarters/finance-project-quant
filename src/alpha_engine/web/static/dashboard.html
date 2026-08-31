@@ -34,22 +34,22 @@
     <div class="grid">
       <!-- KPI tiles -->
       <section class="card span-3 kpi reveal">
-        <div class="label">Total Signals</div>
+        <div class="label">Total Signals <span class="explain" tabindex="0" role="note" data-tip="Every signal the engine has ever recorded. The log is append-only: nothing is edited or deleted after the fact, so the track record cannot be quietly improved.">?</span></div>
         <div class="metric" id="k-total">—</div>
         <div class="sub" id="k-total-sub">recorded, append-only</div>
       </section>
       <section class="card span-3 kpi reveal">
-        <div class="label">Assets Tracked</div>
+        <div class="label">Assets Tracked <span class="explain" tabindex="0" role="note" data-tip="How many different assets have a current signal. Each one shows its most recent view only; the full history is one click away in the feed below.">?</span></div>
         <div class="metric" id="k-assets">—</div>
         <div class="sub" id="k-assets-sub">latest view per asset</div>
       </section>
       <section class="card span-3 kpi reveal">
-        <div class="label">Hit Rate</div>
+        <div class="label">Hit Rate <span class="explain" tabindex="0" role="note" data-tip="Of the past calls that have played out, how many pointed the right way. Careful: a stop-out counts as a full miss, so this reads harsher than the money would. Below 50% means worse than a coin flip.">?</span></div>
         <div class="metric" id="k-hit">—</div>
         <div class="sub" id="k-hit-sub"></div>
       </section>
       <section class="card span-3 kpi reveal">
-        <div class="label">Avg Return <span class="label-hint">per resolved</span></div>
+        <div class="label">Avg Return <span class="label-hint">per resolved</span><span class="explain" tabindex="0" role="note" data-tip="Average price move after each finished signal, in the direction it called. This and Hit Rate can disagree: many small wins and a few big losses drags this negative while hit rate looks fine.">?</span></div>
         <div class="metric" id="k-ret">—</div>
         <div class="sub" id="k-ret-sub"></div>
       </section>
@@ -57,7 +57,7 @@
       <!-- Regime + risk hero -->
       <section class="card span-12 reveal">
         <div class="card-head">
-          <div class="label">Portfolio Regime &amp; Risk <span class="label-hint">HMM regime overlay · inverse-vol sizing · composite risk score</span></div>
+          <div class="label">Portfolio Regime &amp; Risk <span class="label-hint">HMM regime overlay · inverse-vol sizing · composite risk score</span><span class="explain" tabindex="0" role="note" data-tip="Regime is a statistical guess at whether markets are calm or stressed right now, inferred from price behaviour rather than news. The risk score blends volatility, concentration and correlation into one 0-100 number: higher is safer.">?</span></div>
         </div>
         <div class="hero-grid" id="hero">
           <div class="regime">
@@ -89,27 +89,27 @@
         <div id="markets-chart" class="chart-body"></div>
       </section>
       <section class="card span-4 reveal">
-        <div class="card-head"><div class="label">Calibration <span class="label-hint">stated vs. realized</span></div></div>
+        <div class="card-head"><div class="label">Calibration <span class="label-hint">stated vs. realized</span><span class="explain" tabindex="0" role="note" data-tip="Does a stated confidence mean anything? Bars should climb toward the dotted line: calls made at 70% confidence should come true about 70% of the time. Flat bars mean the confidence number carries no information.">?</span></div></div>
         <div id="calibration-chart" class="chart-body"></div>
       </section>
       <section class="card span-4 reveal">
-        <div class="card-head"><div class="label">Outcome Mix</div></div>
+        <div class="card-head"><div class="label">Outcome Mix <span class="explain" tabindex="0" role="note" data-tip="What became of every recorded signal. Pending means the time window has not elapsed yet; N/A means it was neutral, so there was no direction to be right or wrong about.">?</span></div></div>
         <div id="outcome-chart" class="chart-body"></div>
       </section>
 
       <!-- Risk detail: position sizing + tail risk -->
       <section class="card span-6 reveal">
-        <div class="card-head"><div class="label">Position Sizing <span class="label-hint">inverse-volatility weights</span></div></div>
+        <div class="card-head"><div class="label">Position Sizing <span class="label-hint">inverse-volatility weights</span><span class="explain" tabindex="0" role="note" data-tip="If you held all of these, how much would go in each. Calmer assets get a larger share and jumpier ones a smaller share, so each contributes roughly equal risk. This is arithmetic on volatility, not advice.">?</span></div></div>
         <div id="positions" class="chart-body"></div>
       </section>
       <section class="card span-6 reveal">
-        <div class="card-head"><div class="label">Tail Risk <span class="label-hint">95% VaR / CVaR · drawdown</span></div></div>
+        <div class="card-head"><div class="label">Tail Risk <span class="label-hint">95% VaR / CVaR · drawdown</span><span class="explain" tabindex="0" role="note" data-tip="How bad a bad day looks. VaR: on the worst 1 day in 20, you lose at least this much. CVaR: the average loss on those worst days. Max DD is the deepest peak-to-trough fall in the period.">?</span></div></div>
         <div id="tails" class="chart-body"></div>
       </section>
 
       <!-- Portfolio: bias + conviction + correlation -->
       <section class="card span-12 reveal" id="portfolio-card">
-        <div class="card-head"><div class="label">Portfolio View <span class="label-hint">aggregate of the latest signal per asset — research output, not an allocation</span></div></div>
+        <div class="card-head"><div class="label">Portfolio View <span class="label-hint">aggregate of the latest signal per asset — research output, not an allocation</span><span class="explain" tabindex="0" role="note" data-tip="All current signals viewed together. Diversification near 100% means the assets move independently; a low number means they move as one, so holding several is closer to holding a single large position.">?</span></div></div>
         <div id="portfolio" class="chart-body"></div>
       </section>
 

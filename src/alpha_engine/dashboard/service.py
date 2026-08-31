@@ -19,7 +19,11 @@ from typing import Any
 from alpha_engine.analyzers.portfolio_signal import build_portfolio_view
 from alpha_engine.cache.interface import Cache
 from alpha_engine.cache.models import PriceSeries
-from alpha_engine.validation.outcomes import score_record, summarize_outcomes
+from alpha_engine.validation.outcomes import (
+    annotate_coverage,
+    score_record,
+    summarize_outcomes,
+)
 from alpha_engine import __version__
 from alpha_engine.validation.recorder import SignalRecord, read_records
 
@@ -57,12 +61,14 @@ def build_dashboard_payload(
 
         series_cache: dict[str, PriceSeries | None] = {}
         scored: list[tuple[float, Outcome]] = []
+        missing_assets: set[str] = set()
         for record in records:
             asset = record.signal.asset
             if asset not in series_cache:
                 series_cache[asset] = cache.get_price(asset, "1d")[0]
             series = series_cache[asset]
             if series is None:
+                missing_assets.add(asset)
                 continue
             scored.append((record.signal.confidence, score_record(record, series)))
 
@@ -126,7 +132,16 @@ def build_dashboard_payload(
                 }
                 for record in latest
             ],
-            "outcomes": summarize_outcomes(scored).model_dump(mode="json"),
+            # Same coverage rule as `record-stats` and the toolkit: an uncached
+            # asset drops out of scoring entirely, so the hit rate is withheld
+            # rather than shown over a subset. This is the most visible surface
+            # of that number — it renders as a headline tile.
+            "outcomes": annotate_coverage(
+                summarize_outcomes(scored).model_dump(mode="json"),
+                total=len(records),
+                scored=len(scored),
+                missing_assets=missing_assets,
+            ),
             "portfolio": portfolio.model_dump(mode="json"),
             "risk": risk.model_dump(mode="json"),
         }

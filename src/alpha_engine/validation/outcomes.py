@@ -206,8 +206,9 @@ def annotate_coverage(
     missing_assets: Iterable[str],
     min_fraction: float = MIN_SCORED_FRACTION,
 ) -> dict:
-    """Add scoring-coverage fields to a summary payload, and withhold `hit_rate`
-    when too little of the record could be scored.
+    """Add scoring-coverage fields to a summary payload, and withhold the
+    headline figures (`hit_rate`, `avg_realized_return`) when too little of the
+    record could be scored.
 
     A record is skipped when its asset is absent from the local, regenerable
     price cache. That exclusion is not random: it drops whole assets, and which
@@ -232,7 +233,12 @@ def annotate_coverage(
     payload["skipped_assets"] = missing
 
     if skipped and fraction < min_fraction:
+        # Both headline figures are withheld, not just the hit rate. The average
+        # realized return is biased by the same asset-shaped exclusion and is if
+        # anything more fragile: on 2026-08-31 it read -1.92% over the subset and
+        # +1.32% over the full record — a sign flip, not a small drift.
         payload["hit_rate"] = None
+        payload["avg_realized_return"] = None
         payload["hit_rate_suppressed"] = (
             f"only {scored} of {total} records could be scored ({fraction:.1%}); "
             f"the missing assets are {missing}. Backfill their price cache and "

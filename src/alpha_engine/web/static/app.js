@@ -67,14 +67,35 @@ function renderKpis(p) {
   $("k-assets").textContent = p.latest_count ?? 0;
 
   const hit = $("k-hit");
-  hit.textContent = fmtPct(o.hit_rate);
-  hit.className = "metric" + (o.hit_rate != null ? (o.hit_rate >= 0.5 ? " bull" : " bear") : "");
-  $("k-hit-sub").textContent = o.resolved ? `${o.hits}/${o.resolved} resolved · ${o.pending || 0} pending` : "awaiting resolved signals";
+  const hitSub = $("k-hit-sub");
+  if (o.hit_rate_suppressed) {
+    // The number was withheld on purpose: too few records could be scored, and
+    // the ones that dropped out are whole assets rather than a random sample.
+    // Showing a bare "—" here would read as "no data yet", which is a different
+    // and much less alarming thing than "this figure would mislead you".
+    hit.textContent = "withheld";
+    hit.className = "metric muted";
+    hitSub.textContent = `only ${o.records_scored}/${o.records_total} records scoreable — missing prices for ${(o.skipped_assets || []).join(", ")}`;
+    hitSub.title = o.hit_rate_suppressed;
+  } else {
+    hit.textContent = fmtPct(o.hit_rate);
+    hit.className = "metric" + (o.hit_rate != null ? (o.hit_rate >= 0.5 ? " bull" : " bear") : "");
+    hitSub.textContent = o.resolved ? `${o.hits}/${o.resolved} resolved · ${o.pending || 0} pending` : "awaiting resolved signals";
+    hitSub.title = "";
+  }
 
   const ret = $("k-ret");
-  ret.textContent = o.avg_realized_return == null ? "—" : fmtSignedPct(o.avg_realized_return);
-  ret.className = "metric" + (o.avg_realized_return != null ? (o.avg_realized_return >= 0 ? " bull" : " bear") : "");
-  $("k-ret-sub").textContent = o.avg_realized_return != null ? "mean realized move" : "no resolved outcomes yet";
+  if (o.hit_rate_suppressed) {
+    // Withheld for the same reason as the hit rate, and it is the more fragile
+    // of the two: the biased subset flipped this figure's sign entirely.
+    ret.textContent = "withheld";
+    ret.className = "metric muted";
+    $("k-ret-sub").textContent = "same partial sample as hit rate";
+  } else {
+    ret.textContent = o.avg_realized_return == null ? "—" : fmtSignedPct(o.avg_realized_return);
+    ret.className = "metric" + (o.avg_realized_return != null ? (o.avg_realized_return >= 0 ? " bull" : " bear") : "");
+    $("k-ret-sub").textContent = o.avg_realized_return != null ? "mean realized move" : "no resolved outcomes yet";
+  }
 }
 
 // ---- regime + risk hero --------------------------------------------------

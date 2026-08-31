@@ -21,6 +21,10 @@
   --muted:  #6b7789;
   --faint:  #445064;
 
+  /* Explainer tooltip: inverted against the surface it sits on. */
+  --tip-bg:  #e8edf6;
+  --tip-ink: #0f1722;
+
   --line:   rgba(120, 140, 170, 0.14);
   --line-2: rgba(120, 140, 170, 0.26);
   --grid:   rgba(120, 140, 170, 0.10);
@@ -73,6 +77,9 @@
   --text-2: #38465c;
   --muted:  #67748a;
   --faint:  #97a3b6;
+
+  --tip-bg:  #16202e;
+  --tip-ink: #f2f5fa;
 
   --line:   rgba(15, 30, 60, 0.10);
   --line-2: rgba(15, 30, 60, 0.18);
@@ -697,3 +704,35 @@ pre.code-block code { font: inherit; background: none; padding: 0; }
      mid-word. Size the empty state to what it actually has to show. */
   .term-composer textarea { min-height: 64px; }
 }
+
+/* A withheld statistic. Deliberately dimmer and smaller than a real number so
+   it never reads as a value — see annotate_coverage() in validation/outcomes.py. */
+.metric.muted { color: var(--muted); font-size: 0.62em; letter-spacing: 0.01em; }
+
+/* Plain-English explainers ------------------------------------------------
+   A small "?" beside a jargon label. CSS-only on purpose: a tooltip is not
+   worth a JS dependency or a state machine, and this way it still works if
+   app.js fails to load. */
+.explain {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; margin-left: 6px;
+  border-radius: 50%; border: 1px solid var(--faint);
+  color: var(--faint); font-size: 9.5px; font-weight: 700;
+  font-family: var(--sans); text-transform: none; letter-spacing: 0;
+  cursor: help; position: relative; vertical-align: middle; flex: none;
+}
+.explain:hover, .explain:focus-visible { color: var(--text); border-color: var(--text); }
+.explain::after {
+  content: attr(data-tip);
+  position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+  width: max-content; max-width: 290px; padding: 9px 11px;
+  background: var(--tip-bg); color: var(--tip-ink);
+  border-radius: 8px; box-shadow: 0 6px 22px rgba(0,0,0,.22);
+  font-size: 12px; font-weight: 400; line-height: 1.45; text-align: left;
+  text-transform: none; letter-spacing: 0; white-space: normal;
+  opacity: 0; visibility: hidden; transition: opacity .13s ease; z-index: 60;
+  pointer-events: none;
+}
+.explain:hover::after, .explain:focus-visible::after { opacity: 1; visibility: visible; }
+/* Near the right edge the bubble would overflow the viewport. */
+.explain.tip-left::after { left: auto; right: 0; transform: none; }
