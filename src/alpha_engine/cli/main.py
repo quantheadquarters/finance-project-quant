@@ -68,7 +68,7 @@ from alpha_engine.execution.executor import place_order
 from alpha_engine.execution.orders import signal_to_order
 from alpha_engine.validation.backtest import run_backtest, run_per_analyzer_backtest
 from alpha_engine.validation.options_backtest import run_options_backtest
-from alpha_engine.validation.outcomes import score_record, summarize_outcomes
+from alpha_engine.validation.outcomes import annotate_coverage, score_record, summarize_outcomes
 from alpha_engine.validation.recorder import read_records, record_signal
 
 # Indian index symbols that route to the F&O path. Extend as chains land.
@@ -789,18 +789,31 @@ def cmd_record_stats(args: argparse.Namespace) -> int:
 
     cache = Cache()
     scored = []
+    missing_assets: set[str] = set()
     for record in records:
         series, _stale = cache.get_price(record.signal.asset, "1d")
         if series is None:
-            continue  # asset no longer cached; counted below as skipped
+            missing_assets.add(record.signal.asset)
+            continue  # asset no longer cached; disclosed in the payload below
         scored.append((record.signal.confidence, score_record(record, series)))
 
     skipped = len(records) - len(scored)
-    if skipped:
-        print(f"[record-stats] {skipped} record(s) skipped: no cached prices", file=sys.stderr)
 
-    summary = summarize_outcomes(scored)
-    print(summary.model_dump_json(indent=2))
+    payload = annotate_coverage(
+        summarize_outcomes(scored).model_dump(),
+        total=len(records),
+        scored=len(scored),
+        missing_assets=missing_assets,
+    )
+
+    if skipped:
+        print(
+            f"[record-stats] {skipped} of {len(records)} record(s) skipped, "
+            f"no cached prices for: {', '.join(sorted(missing_assets))}",
+            file=sys.stderr,
+        )
+
+    print(json.dumps(payload, indent=2))
     return 0
 
 

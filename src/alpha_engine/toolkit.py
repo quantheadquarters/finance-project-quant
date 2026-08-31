@@ -224,7 +224,11 @@ def tool_factors(args: dict[str, Any]) -> dict[str, Any]:
 
 def tool_record_stats(args: dict[str, Any]) -> dict[str, Any]:
     """The live track record — the honest answer to 'does it work?'"""
-    from alpha_engine.validation.outcomes import score_record, summarize_outcomes
+    from alpha_engine.validation.outcomes import (
+        annotate_coverage,
+        score_record,
+        summarize_outcomes,
+    )
     from alpha_engine.validation.recorder import read_records
 
     records = read_records()
@@ -233,16 +237,22 @@ def tool_record_stats(args: dict[str, Any]) -> dict[str, Any]:
 
     cache = _cache()
     scored = []
+    missing_assets: set[str] = set()
     for record in records:
         series, _stale = cache.get_price(record.signal.asset, "1d")
         if series is None:
+            missing_assets.add(record.signal.asset)
             continue
         scored.append((record.signal.confidence, score_record(record, series)))
 
-    payload = _dump(summarize_outcomes(scored))
-    payload["records_total"] = len(records)
-    payload["records_skipped_no_prices"] = len(records) - len(scored)
-    return payload
+    # Same coverage rule as the CLI. This is the surface an AI reads over MCP,
+    # so an unqualified hit rate here is the one most likely to be quoted.
+    return annotate_coverage(
+        _dump(summarize_outcomes(scored)),
+        total=len(records),
+        scored=len(scored),
+        missing_assets=missing_assets,
+    )
 
 
 def tool_health(args: dict[str, Any]) -> dict[str, Any]:

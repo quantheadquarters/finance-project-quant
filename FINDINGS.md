@@ -234,6 +234,83 @@ Fixed in `cli/main.py` and `toolkit.py`; pinned by
 
 ---
 
+## 2026-08-31 — The factor registry was swept out-of-sample. It found nothing.
+
+**Verdict: across 7 assets, factors replicated out-of-sample 3.7 percentage
+points WORSE than shuffled noise. No edge.**
+
+FUTURE_WORK.md named this as the one remaining path to an actual edge: the
+504-factor registry "has never been run systematically". It has now.
+
+### Method
+
+`scripts/factor_sweep.py`. Per asset: split history 60/40, rank all 495 factors
+on train, keep only those clearing their own per-factor noise floor, re-measure
+the survivors on test, and require the same IC sign. Then require replication
+across assets. The panel is computed once on full history and sliced — every
+factor is lookahead-pinned, so a factor's value at bar i uses only bars <= i,
+which preserves the warmup a 252-period factor needs.
+
+```bash
+python scripts/factor_sweep.py --json sweep.json
+```
+
+### The result that was nearly reported as edge
+
+The first run reported **70.3% out-of-sample sign agreement, z = +9.52** against
+an assumed null of 50%, plus 41 factors "confirmed" on 2+ assets. It looked
+overwhelming.
+
+It was wrong, in two compounding ways:
+
+**1. The assumed null was nowhere near 50%.** Shuffling the test window's closes
+destroys any factor-to-future relation while leaving the factors untouched. Run
+through that, the same procedure still returns ~74% sign agreement. Slow,
+autocorrelated factors scored against overlapping forward returns keep their IC
+sign across a split for reasons that have nothing to do with prediction.
+
+**2. The 41 "confirmed" factors were one idea, not 41.** `dist_sma_120`,
+`dist_ema_120`, `dist_vwap_120`, `slope_sma_90`, `slope_ema_90` and `mom_90` are
+all "where is price relative to its long average". The z-score treated 548
+correlated measurements as independent trials.
+
+### The corrected numbers
+
+| Asset | sign agreement | shuffled null | delta |
+|---|---:|---:|---:|
+| BTC | 72.8% | 84.8% | **−12.0%** |
+| ETH | 77.5% | 82.0% | **−4.4%** |
+| SOL | 83.3% | 81.9% | +1.5% |
+| AAPL | 38.1% | 42.3% | **−4.2%** |
+| MSFT | 60.9% | 67.4% | **−6.5%** |
+| GOOGL | 30.5% | 36.3% | **−5.8%** |
+| NVDA | 96.9% | 91.4% | +5.5% |
+| **Pooled** | **65.7%** | **69.4%** | **−3.7%** |
+
+Factors "confirmed": **170 real vs 179 expected from shuffled noise.** Five of
+seven assets are negative. The registry does not beat its own null.
+
+### Why this is the third entry in this file rather than the first
+
+This is the same failure mode as the two in the 2026-07-27 entry — a
+plausible-looking number that survives until it is tested against the right
+null. The lesson is now structural rather than remembered: the permutation
+control runs on **every** invocation of the sweep and prints beside the real
+number, so the two cannot be reported separately or drift apart. `--permutations 0`
+disables it and the output says in plain text that the result is uninterpretable.
+
+Pinned by `tests/test_factor_validation.py::test_sweep_shuffle_control_preserves_train_and_permutes_test`,
+because a shuffle that silently became a no-op would compare the real run
+against itself, report a delta of zero forever, and look exactly like a working
+control.
+
+**This does not close the search.** It rules out this registry, at this horizon,
+on this much history, judged this way. It does not rule out other inputs — but
+it does mean the +0.0% headline stands, and now stands against a systematic
+attempt to overturn it rather than an absence of one.
+
+---
+
 ## What this does and does not mean
 
 **It does not mean the project failed.** The engine was built to answer this

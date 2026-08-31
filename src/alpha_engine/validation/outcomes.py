@@ -18,6 +18,7 @@ Everything here is a pure function of its inputs: no network, no clock reads.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from enum import Enum
 
 from pydantic import BaseModel, Field
@@ -190,3 +191,52 @@ def summarize_outcomes(scored: list[tuple[float, Outcome]]) -> OutcomeSummary:
         avg_realized_return=round(sum(returns) / len(returns), 6) if returns else None,
         calibration=bins,
     )
+
+
+# Below this fraction of scored records, the track record withholds its hit rate
+# instead of reporting one computed over an asset-biased subset.
+MIN_SCORED_FRACTION = 0.95
+
+
+def annotate_coverage(
+    payload: dict,
+    *,
+    total: int,
+    scored: int,
+    missing_assets: Iterable[str],
+    min_fraction: float = MIN_SCORED_FRACTION,
+) -> dict:
+    """Add scoring-coverage fields to a summary payload, and withhold `hit_rate`
+    when too little of the record could be scored.
+
+    A record is skipped when its asset is absent from the local, regenerable
+    price cache. That exclusion is not random: it drops whole assets, and which
+    ones depends on the machine. A hit rate over the remainder is a different
+    statistic wearing the same name — on 2026-08-31 this reported 0.1184 where
+    the full sample gave 0.3050, with the average return flipped in sign.
+
+    Callers that render to stderr can still print their own note; this exists so
+    the *payload* carries the caveat, since stderr does not survive a pipe into a
+    dashboard or an MCP client.
+
+    Mutates and returns `payload`.
+    """
+    missing = sorted(set(missing_assets))
+    skipped = total - scored
+    fraction = scored / total if total else 0.0
+
+    payload["records_total"] = total
+    payload["records_scored"] = scored
+    payload["records_skipped"] = skipped
+    payload["scored_fraction"] = round(fraction, 4)
+    payload["skipped_assets"] = missing
+
+    if skipped and fraction < min_fraction:
+        payload["hit_rate"] = None
+        payload["hit_rate_suppressed"] = (
+            f"only {scored} of {total} records could be scored ({fraction:.1%}); "
+            f"the missing assets are {missing}. Backfill their price cache and "
+            "re-run — a hit rate over this subset would describe a different, "
+            "machine-dependent sample."
+        )
+    return payload

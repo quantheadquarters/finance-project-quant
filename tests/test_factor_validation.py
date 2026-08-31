@@ -175,3 +175,80 @@ def test_factors_tool_reports_a_per_factor_floor() -> None:
         if floor is not None and ic is not None:
             # The verdict must follow from that factor's own line, nothing else.
             assert row["clears_own_noise_floor"] == (abs(ic) >= floor)
+
+
+def test_coverage_annotation_withholds_hit_rate_on_a_biased_subset() -> None:
+    """The track record's hit rate must not be reported when a large share of
+    records could not be scored.
+
+    Records are skipped when their asset is missing from the local price cache,
+    which drops whole assets rather than a random sample. On 2026-08-31 that
+    path reported 0.1184 where the full record gave 0.3050 — same name, different
+    statistic. See BUGS.md #2.
+    """
+    from alpha_engine.validation.outcomes import annotate_coverage
+
+    # Badly covered: the number is withheld and the reason names the assets.
+    partial = annotate_coverage(
+        {"hit_rate": 0.1184},
+        total=339,
+        scored=99,
+        missing_assets=["SOL", "ETH", "ETH"],
+    )
+    assert partial["hit_rate"] is None
+    assert partial["records_skipped"] == 240
+    assert partial["skipped_assets"] == ["ETH", "SOL"]  # deduped and sorted
+    assert "ETH" in partial["hit_rate_suppressed"]
+
+    # Fully covered: the number survives untouched and no caveat is added.
+    full = annotate_coverage({"hit_rate": 0.305}, total=339, scored=339, missing_assets=[])
+    assert full["hit_rate"] == 0.305
+    assert full["scored_fraction"] == 1.0
+    assert "hit_rate_suppressed" not in full
+
+
+def test_record_stats_tool_carries_the_same_coverage_caveat() -> None:
+    """`record_stats` over MCP is the payload an AI is most likely to quote, so
+    it must carry the coverage fields the CLI does."""
+    from alpha_engine.toolkit import call_tool
+
+    payload = call_tool("record_stats", {})
+    if payload.get("records") == 0:
+        pytest.skip("no signals recorded in this environment")
+    for key in ("records_total", "records_scored", "records_skipped", "scored_fraction"):
+        assert key in payload, f"{key} missing from record_stats payload"
+    if payload.get("hit_rate") is not None:
+        assert payload["scored_fraction"] >= 0.95
+
+
+def test_sweep_shuffle_control_preserves_train_and_permutes_test() -> None:
+    """The sweep's permutation control is what makes its output interpretable,
+    so its one job is pinned here: leave the training window untouched, and
+    genuinely reorder the test window.
+
+    If the shuffle silently became a no-op, the sweep would compare the real run
+    against itself and report a delta of zero forever — a broken control that
+    looks exactly like a working one. See FINDINGS.md, 2026-08-31.
+    """
+    import importlib.util
+    from pathlib import Path
+
+    spec = importlib.util.spec_from_file_location(
+        "factor_sweep", Path(__file__).parent.parent / "scripts" / "factor_sweep.py"
+    )
+    sweep = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(sweep)
+
+    # A deterministic ramp is enough: the control's contract is structural.
+    series = _series([100.0 + i for i in range(240)])
+    split = 144
+    shuffled = sweep._shuffled(series, split, seed=7)
+
+    assert len(shuffled.candles) == len(series.candles)
+    # Train window must survive byte-for-byte: it is the half being ranked on.
+    assert [c.close for c in shuffled.candles[:split]] == [c.close for c in series.candles[:split]]
+    # Test window must be a genuine reordering — same multiset, different order.
+    orig = [c.close for c in series.candles[split:]]
+    perm = [c.close for c in shuffled.candles[split:]]
+    assert sorted(perm) == sorted(orig)
+    assert perm != orig, "shuffle was a no-op; the control would be meaningless"
