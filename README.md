@@ -25,15 +25,61 @@ would be wrong.
 >
 > That is the honest state, and finding it out is what this project is for.
 
+## What this measures, and what it doesn't
+
+This is a **measuring instrument, not a forecaster**. The distinction decides
+whether it is useful to you, so it is worth being blunt about both halves.
+
+### What it measures reliably
+
+| It answers | How, and why you can trust the answer |
+|---|---|
+| **Were the engine's own calls right?** | `backtest` replays history through `signal_at()`, which truncates the series *before* any analyzer runs. No-lookahead is structural — a caller cannot leak the future in even by accident. |
+| **What would my own trading rule have done?** | `strategy-backtest` gives trades, equity curve, Sharpe, and drawdown. It also re-runs your rule on truncated history and reports any bar whose signal changed, so lookahead is *detected* rather than assumed away. |
+| **Does this factor predict anything, or am I fooling myself?** | `factors` scores 495 factors by rank IC and compares each against the \|IC\| that the best of 495 *random* factors would reach on that factor's own sample size. On BTC, 385 of 495 fail that line. |
+| **Is a data source dead or just quiet?** | Every adapter records an item count per feed, so `health` distinguishes "no news today" from "this scraper broke in March". Scrapers fail silently; this is the countermeasure. |
+| **How confident should a confidence score make me?** | `record-stats` and `calibrate` score logged signals against what actually happened, bucketed by stated confidence. |
+
+The common thread: every one of these can return a **negative** answer, and the
+code is built so the negative answer is the easy one to get. That is the whole
+design.
+
+### What it does not measure, and cannot
+
+- **It does not predict prices.** Measured over 6,788 signals: +0.0% edge over
+  the direction-matched base rate. Not "modest edge" — no detectable edge.
+  See [FINDINGS.md](FINDINGS.md).
+- **A high-ranked factor is not alpha.** Rank IC is in-sample association. The
+  noise floor filters the obviously-random ones; it cannot make survivors real.
+  Only out-of-sample confirmation does that, and this repo does not do it for you.
+- **A backtest is not a forecast.** No slippage model survives contact with a
+  thin book, and past-fitted parameters are the oldest trap in the field.
+- **Confidence is not probability.** It is a weighted vote of analyzers whose
+  individual reliability is, so far, measured at approximately coin-flip.
+- **It has no view on position sizing or your risk tolerance.** `risk` reports
+  concentration and VaR on a portfolio you describe; it does not know your account.
+
+### Who it is actually for
+
+Someone who wants to **test a market idea and find out it doesn't work, cheaply**
+— before risking money on it. The instrument is the product. The 504-factor
+registry, the two backtesters, and the no-lookahead guarantees exist so that a
+null result is trustworthy, and [FINDINGS.md](FINDINGS.md) exists because null
+results are worth publishing.
+
+If you are looking for signals to trade, this will disappoint you, and it is
+designed to disappoint you honestly rather than late.
+
 ## Where to look
 
-Fourteen documents is a lot. Read down this list only as far as you need.
+Thirteen documents is a lot. Read down this list only as far as you need.
 
 | If you want to… | Read |
 |---|---|
 | **Understand what this is** | [HOW_IT_WORKS.md](HOW_IT_WORKS.md) — plain English first, then technical |
 | **Install and run it** | [GETTING_STARTED.md](GETTING_STARTED.md) |
 | **Know whether it works** | **[FINDINGS.md](FINDINGS.md)** — measured results, including the null ones |
+| **Know what's broken** | [BUGS.md](BUGS.md) — open defects and fixed ones, with their evidence |
 | **Run it on a schedule** | [RUNNING_IT.md](RUNNING_IT.md) — the daily job and source health |
 | **Change the code** | [AGENTS.md](AGENTS.md) — architecture, extension points, and the gotchas that cost someone a day |
 | **Know why it is built this way** | [context.md](context.md) — the non-negotiable design rules |

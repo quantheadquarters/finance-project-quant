@@ -1335,7 +1335,7 @@ def cmd_factors(args: argparse.Namespace) -> int:
         factor_names,
         flag_low_signal,
     )
-    from alpha_engine.quant.ranking import noise_floor_ic, rank_factors
+    from alpha_engine.quant.ranking import FactorScore, noise_floor_ic, rank_factors
 
     market = detect_market(args.asset, getattr(args, "market", None))
     cache = Cache()
@@ -1379,7 +1379,21 @@ def cmd_factors(args: argparse.Namespace) -> int:
     obs = [s.n_obs for s in scores if s.n_obs > 0]
     median_obs = sorted(obs)[len(obs) // 2] if obs else 0
     floor = noise_floor_ic(len(scores), median_obs)
-    best_ic = next((abs(s.rank_ic) for s in scores if s.rank_ic is not None), None)
+
+    # Per-factor floor. Coverage varies hugely across the registry (a 252-period
+    # factor is computable on ~14% of a 366-bar series, a 10-period one on ~97%),
+    # and the floor scales with 1/sqrt(n). One median-derived line is therefore
+    # too lenient for exactly the long-window factors that crowd the top of the
+    # ranking, so every factor is judged against its own sample size.
+    own_floor = {s.name: noise_floor_ic(len(scores), s.n_obs) for s in scores}
+
+    def _below_own_floor(s: FactorScore) -> bool:
+        f = own_floor.get(s.name)
+        return f is not None and s.rank_ic is not None and abs(s.rank_ic) < f
+
+    top_score = next((s for s in scores if s.rank_ic is not None), None)
+    best_ic = abs(top_score.rank_ic) if top_score is not None else None
+    top_floor = own_floor.get(top_score.name) if top_score is not None else None
 
     top = getattr(args, "top", 0)
     shown = scores[:top] if top and top > 0 else scores
@@ -1395,7 +1409,9 @@ def cmd_factors(args: argparse.Namespace) -> int:
                     "median_observations": median_obs,
                     "noise_floor_ic": round(floor, 4) if floor is not None else None,
                     "best_ic_clears_noise_floor": (
-                        bool(best_ic > floor) if floor is not None and best_ic is not None else None
+                        bool(best_ic >= top_floor)
+                        if top_floor is not None and best_ic is not None
+                        else None
                     ),
                     "low_signal_families": sorted(f for f, flag in low_signal.items() if flag),
                     "factors": [
@@ -1407,8 +1423,17 @@ def cmd_factors(args: argparse.Namespace) -> int:
                             "rank_ic": s.rank_ic,
                             "hit_rate": s.hit_rate,
                             "coverage": round(s.coverage, 3),
+                            "n_obs": s.n_obs,
                             "t_stat": s.t_stat,
                             "ic_decay": s.ic_by_horizon,
+                            "own_noise_floor_ic": (
+                                round(own_floor[s.name], 4)
+                                if own_floor.get(s.name) is not None
+                                else None
+                            ),
+                            "clears_own_noise_floor": (
+                                None if own_floor.get(s.name) is None else not _below_own_floor(s)
+                            ),
                         }
                         for s in shown
                     ],
@@ -1420,7 +1445,7 @@ def cmd_factors(args: argparse.Namespace) -> int:
 
     header = (
         f"{'factor':<28} {'family':<15} {'rank_ic':>8} {'t_stat':>7} {'hit_rate':>9} "
-        f"{'coverage':>9} {'ic(1)':>8} {'ic(5)':>8} {'ic(10)':>8} {'ic(20)':>8}"
+        f"{'coverage':>9} {'ic(1)':>8} {'ic(5)':>8} {'ic(10)':>8} {'ic(20)':>8} {'vs_floor':>9}"
     )
     print(f"\nFactor ranking for {args.asset.upper()} (horizon={args.horizon} bars)")
     print(f"{len(scores)} factors scored over {len(series.candles)} bars\n")
@@ -1434,7 +1459,8 @@ def cmd_factors(args: argparse.Namespace) -> int:
         print(
             f"{s.name:<28} {family:<15} {_ic_cell(s.rank_ic):>8} {t:>7} {hr:>9} {cov:>9} "
             f"{_ic_cell(s.ic_by_horizon.get(1)):>8} {_ic_cell(s.ic_by_horizon.get(5)):>8} "
-            f"{_ic_cell(s.ic_by_horizon.get(10)):>8} {_ic_cell(s.ic_by_horizon.get(20)):>8}"
+            f"{_ic_cell(s.ic_by_horizon.get(10)):>8} {_ic_cell(s.ic_by_horizon.get(20)):>8} "
+            f"{'noise' if _below_own_floor(s) else 'ok':>9}"
         )
     if top and top > 0 and len(scores) > top:
         print(f"\n... {len(scores) - top} more (use --top 0 for all, or --json)")
@@ -1442,18 +1468,29 @@ def cmd_factors(args: argparse.Namespace) -> int:
     if floor is not None:
         print(
             f"\nnoise floor: |IC| >= {floor:.4f} is what the BEST of {len(scores)} purely random "
-            f"factors\nwould reach on {median_obs} observations. "
+            f"factors\nwould reach on {median_obs} observations (the median factor's sample). "
+            "Each factor\nis judged against its own sample size in the vs_floor column, because "
+            "a factor\nwith less data has to clear a higher bar."
         )
-        if best_ic is not None and best_ic <= floor:
+        buried = sum(1 for s2 in shown if _below_own_floor(s2))
+        if buried:
             print(
-                "  -> The top factor does NOT clear it. On this much data, this ranking is\n"
-                "     consistent with every factor being noise. Use more history."
+                f"  -> {buried} of the {len(shown)} rows shown are marked 'noise': their |IC| "
+                f"beats the\n     table-wide line above but not the floor for their own coverage."
             )
-        else:
-            print(
-                "  -> The top factor clears it, which makes it worth a second look —\n"
-                "     not proof. Confirm out-of-sample before believing it."
-            )
+        if top_floor is not None and best_ic is not None:
+            if best_ic < top_floor:
+                print(
+                    f"  -> The top factor does NOT clear its own floor ({top_floor:.4f} on "
+                    f"{top_score.n_obs} obs).\n     On this much data, this ranking is consistent "
+                    "with every factor being noise.\n     Use more history."
+                )
+            else:
+                print(
+                    f"  -> The top factor clears its own floor ({top_floor:.4f} on "
+                    f"{top_score.n_obs} obs), which\n     makes it worth a second look — not "
+                    "proof. Confirm out-of-sample before believing it."
+                )
 
     noisy = sorted(f for f, flag in low_signal.items() if flag)
     if noisy:

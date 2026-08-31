@@ -39,6 +39,7 @@ python -m alpha_engine.cli.main scan BTC --no-record   # manual end-to-end check
 #   verifying a build should not append test scans to it.
 
 pytest tests/test_core.py::test_name -q    # single test
+pytest tests/test_execution.py -q          # the paper-first gate; run after ANY execution/ change
 ruff format .                              # fix formatting
 ./start.sh <cmd>                           # zero-setup wrapper (venv + install + run)
 ```
@@ -103,9 +104,14 @@ These fail quietly — no crash, wrong behavior for months. Full list in AGENTS.
   `_load_onchain`, `_load_fundamentals` in `cli/main.py` never fetch; `ingest` and
   `orchestrate` populate them. Making them fetch inline takes `pytest` from ~23s to ~70s.
 
+**Bugs go in a file, not in chat.** A defect you spot but do not fix goes in
+[BUGS.md](BUGS.md) with its symptom, evidence, and proposed fix — never left as
+a remark in conversation.
+
 **Measured, not claimed:** [FINDINGS.md](FINDINGS.md) holds what the engine has
-actually been shown to do — currently +0.0% directional edge over 6,788 signals.
-Read it before trusting anything here.
+actually been shown to do, measured over thousands of logged signals. That file
+is the only place the edge number lives — read it before trusting anything here,
+and never restate the figure from memory.
 
 ## Everything else
 
@@ -113,3 +119,7 @@ Read [AGENTS.md](AGENTS.md) — it holds the full command list, architecture,
 extension patterns, and gotchas. For deeper background, [context.md](context.md)
 has the layer table; [FUTURE_WORK.md](FUTURE_WORK.md) holds the roadmap;
 [README.md](README.md) has the full capability matrix.
+
+The remaining top-level docs (`GETTING_STARTED.md`, `RUNNING_IT.md`,
+`HOW_IT_WORKS.md`, `CONTRIBUTING.md`, `AUDIT.md`, `CHANGELOG.md`) are written for
+humans and restate the above in longer form — skip them unless asked.

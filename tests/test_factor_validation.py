@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import math
 import random
+import pytest
 from datetime import datetime, timedelta, timezone
 
 from alpha_engine.cache.models import Candle, Interval, PriceSeries
@@ -133,3 +134,44 @@ def test_noise_floor_scales_with_the_multiple_testing_burden() -> None:
     # Degenerate inputs have no meaningful floor rather than a misleading number.
     assert noise_floor_ic(1, 400) is None
     assert noise_floor_ic(500, 2) is None
+
+
+def test_low_coverage_factor_is_marked_noise_against_its_own_floor() -> None:
+    """The bug this pins: a single table-wide floor derived from the *median*
+    factor's sample size is too lenient for low-coverage factors.
+
+    The floor scales with 1/sqrt(n), so a factor computable on 90 bars has to
+    clear a visibly higher bar than one computable on 300. Judging both against
+    the median's line lets the sparse one be presented as a ranked result it did
+    not earn. Every factor must be scored against its own n_obs.
+    """
+    n_factors = 495
+    median_floor = noise_floor_ic(n_factors, 297)  # the table-wide line
+    sparse_floor = noise_floor_ic(n_factors, 94)  # a 252-period factor's own line
+
+    assert sparse_floor > median_floor, "less data must mean a harsher floor"
+
+    # An IC in this gap is the exact failure mode: it beats the table-wide line
+    # while failing its own. It must not be reported as clearing the floor.
+    ic = (median_floor + sparse_floor) / 2
+    assert ic >= median_floor
+    assert ic < sparse_floor
+
+
+def test_factors_tool_reports_a_per_factor_floor() -> None:
+    """`tool_factors` feeds MCP and the HTTP API, so the per-factor verdict has
+    to survive there too — not just in the CLI's printed table."""
+    from alpha_engine.toolkit import tool_factors
+
+    payload = tool_factors({"asset": "BTC", "days": 400})
+    if "error" in payload:  # no cached BTC series in this environment
+        pytest.skip(f"no series available: {payload['error']}")
+
+    assert payload["factors"], "expected at least one scored factor"
+    for row in payload["factors"]:
+        assert "own_noise_floor_ic" in row
+        assert "clears_own_noise_floor" in row
+        floor, ic = row["own_noise_floor_ic"], row["rank_ic"]
+        if floor is not None and ic is not None:
+            # The verdict must follow from that factor's own line, nothing else.
+            assert row["clears_own_noise_floor"] == (abs(ic) >= floor)

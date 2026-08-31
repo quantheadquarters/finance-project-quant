@@ -182,6 +182,11 @@ def tool_factors(args: dict[str, Any]) -> dict[str, Any]:
     median_obs = sorted(obs)[len(obs) // 2] if obs else 0
     floor = noise_floor_ic(len(scores), median_obs)
 
+    # Per-factor floor: coverage varies across the registry and the floor scales
+    # with 1/sqrt(n), so the median-derived line above is too lenient for the
+    # long-window factors that crowd the top. See cli/main.py for the long note.
+    own_floor = {s.name: noise_floor_ic(len(scores), s.n_obs) for s in scores}
+
     top = args.get("top", 25)
     return {
         "asset": asset,
@@ -190,7 +195,10 @@ def tool_factors(args: dict[str, Any]) -> dict[str, Any]:
         "noise_floor_ic": round(floor, 4) if floor else None,
         "noise_floor_note": (
             "An |IC| below the noise floor is what the best of this many purely "
-            "random factors would reach by chance. Below it means nothing."
+            "random factors would reach by chance. Below it means nothing. The "
+            "top-level figure uses the median factor's sample size; judge each "
+            "factor by its own clears_own_noise_floor, which accounts for how "
+            "much data that factor actually had."
         ),
         "factors": [
             {
@@ -200,6 +208,14 @@ def tool_factors(args: dict[str, Any]) -> dict[str, Any]:
                 "hit_rate": s.hit_rate,
                 "coverage": round(s.coverage, 3),
                 "n_obs": s.n_obs,
+                "own_noise_floor_ic": (
+                    round(own_floor[s.name], 4) if own_floor.get(s.name) is not None else None
+                ),
+                "clears_own_noise_floor": (
+                    None
+                    if own_floor.get(s.name) is None or s.rank_ic is None
+                    else abs(s.rank_ic) >= own_floor[s.name]
+                ),
             }
             for s in scores[:top]
         ],

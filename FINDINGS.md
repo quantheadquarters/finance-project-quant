@@ -181,6 +181,59 @@ otherwise.
 
 ---
 
+## 2026-08-31 — 385 of 495 factors were being ranked above a floor they had not cleared
+
+**Verdict: the factor ranking's multiple-testing guard was applied at the wrong
+granularity. Only 110 of 495 factors clear their own noise floor on BTC.**
+
+### What was wrong
+
+`noise_floor_ic` answers: what |IC| would the *best* of k purely random factors
+reach on n observations? It is the one thing separating this ranking from
+data-mined nonsense, and it scales with `1/sqrt(n)` — less data means a higher
+bar.
+
+The CLI and the `factors` tool both computed **one** floor for the whole table,
+from the **median** factor's observation count. But coverage across the registry
+is wildly uneven: a 252-period factor is computable on ~14% of a 366-bar series,
+a 10-period one on ~97%. A single median-derived line is therefore too lenient
+for exactly the long-window factors that crowd the top of the ranking.
+
+### The result
+
+On `factors BTC` (366 bars, 495 factors), the table-wide floor was **0.2044**
+from a median sample of 297. Judged against their own samples:
+
+| factor | \|IC\| | coverage | own n | own floor | old verdict | correct verdict |
+|---|---:|---:|---:|---:|---|---|
+| `slope_sma_252` | 0.6856 | 14.2% | 42 | 0.5436 | clears (vs 0.2044) | clears, but barely |
+| `vol_percentile_252` | 0.3215 | 25.7% | 94 | 0.3633 | clears | **noise** |
+| `ulcer_index_252` | 0.3198 | 31.4% | 114 | 0.3299 | clears | **noise** |
+
+Across the full table: **385 of 495 factors are indistinguishable from noise**
+at their own sample size; 110 clear their line. The headline verdict was also
+comparing the top factor's IC against the *median* factor's floor — on this run
+the top factor's real bar is 0.5436 on 42 observations, not 0.2044 on 297. It
+still clears, but with far less room than the output implied.
+
+```bash
+alpha-engine factors BTC --top 0     # vs_floor column, per-factor verdict
+alpha-engine factors BTC --json      # own_noise_floor_ic, clears_own_noise_floor
+```
+
+### Why it is recorded here
+
+No number in this file changed — the +0.0% edge measurement never went through
+the factor ranking. What changed is how much of the factor registry can be
+described as promising: far less than the previous output suggested. That is a
+result about the instrument rather than the market, which is exactly the kind of
+thing that otherwise goes unrecorded.
+
+Fixed in `cli/main.py` and `toolkit.py`; pinned by
+`tests/test_factor_validation.py::test_low_coverage_factor_is_marked_noise_against_its_own_floor`.
+
+---
+
 ## What this does and does not mean
 
 **It does not mean the project failed.** The engine was built to answer this
