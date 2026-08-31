@@ -736,3 +736,177 @@ pre.code-block code { font: inherit; background: none; padding: 0; }
 .explain:hover::after, .explain:focus-visible::after { opacity: 1; visibility: visible; }
 /* Near the right edge the bubble would overflow the viewport. */
 .explain.tip-left::after { left: auto; right: 0; transform: none; }
+
+/* ============================================================================
+   REFINEMENT LAYER
+   ----------------------------------------------------------------------------
+   A craft pass over the layout above: type rhythm, depth, and the small details
+   that separate "clean" from "considered". Deliberately additive — every class
+   name and every validated palette value above is untouched, so app.js and the
+   dataviz color decisions keep working exactly as they did.
+
+   Constraints this respects: no build step, no external fonts, no network
+   requests of any kind (strict CSP). Everything here is hand-written CSS.
+   ============================================================================ */
+
+/* ---- 1. numerals ----------------------------------------------------------
+   The single highest-impact change in a data product. Proportional digits make
+   a column of numbers jitter as values update, and make decimal points fail to
+   line up down a table. Tabular figures fix both, everywhere a number renders. */
+.metric, .kpi .metric, .num, td, th, .mono,
+.gauge-value, .stat-value, .bar-value, .pct, .cell-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "cv01" 1, "ss01" 1;
+}
+
+/* ---- 2. type scale --------------------------------------------------------
+   Large text needs negative tracking to look intentional rather than merely
+   big; small caps labels need positive tracking to stay legible. This is the
+   optical-sizing adjustment a type designer would apply by hand. */
+.metric {
+  font-size: clamp(30px, 3.1vw, 40px);
+  font-weight: 640;
+  letter-spacing: -0.028em;
+  line-height: 1.02;
+  font-variant-numeric: tabular-nums;
+}
+.label {
+  font-size: 10.5px;
+  font-weight: 620;
+  letter-spacing: 0.085em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.sub {
+  font-size: 11.5px;
+  color: var(--muted);
+  letter-spacing: 0.002em;
+  line-height: 1.5;
+}
+h1 { letter-spacing: -0.024em; font-weight: 660; }
+
+/* ---- 3. card depth --------------------------------------------------------
+   A flat fill with a 1px border reads as a wireframe. Real materials catch
+   light on their top edge: the inset highlight is that catch. It is what makes
+   a surface look lit rather than drawn, and it costs one shadow. */
+.card {
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0) 42%),
+    var(--surface);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.055),
+    0 1px 2px rgba(0,0,0,0.20),
+    0 12px 34px -14px rgba(0,0,0,0.45);
+  transition:
+    transform 0.32s var(--ease),
+    box-shadow 0.32s var(--ease),
+    border-color 0.32s var(--ease);
+}
+:root[data-theme="light"] .card {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0) 46%),
+    var(--surface);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.95),
+    0 1px 2px rgba(15,30,60,0.05),
+    0 12px 30px -16px rgba(15,30,60,0.16);
+}
+/* Lift on hover, but only for pointers that can actually hover, and only when
+   the visitor has not asked for reduced motion. */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.075),
+      0 2px 4px rgba(0,0,0,0.22),
+      0 22px 50px -18px rgba(0,0,0,0.55);
+  }
+  :root[data-theme="light"] .card:hover {
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.95),
+      0 2px 6px rgba(15,30,60,0.07),
+      0 22px 44px -20px rgba(15,30,60,0.22);
+  }
+}
+
+/* ---- 4. the KPI row -------------------------------------------------------
+   These four numbers are the first thing read, so they get the strongest
+   hierarchy on the page: a hairline accent above each tile, keyed to meaning. */
+.kpi { position: relative; overflow: hidden; }
+.kpi::before {
+  content: "";
+  position: absolute; inset: 0 0 auto 0; height: 2px;
+  background: linear-gradient(90deg, var(--accent), transparent 72%);
+  opacity: 0.55;
+}
+.kpi:nth-child(2)::before { background: linear-gradient(90deg, var(--cat-us_equity), transparent 72%); }
+.kpi:nth-child(3)::before { background: linear-gradient(90deg, var(--warn), transparent 72%); }
+.kpi:nth-child(4)::before { background: linear-gradient(90deg, var(--accent-2), transparent 72%); }
+
+/* ---- 5. grain -------------------------------------------------------------
+   A very low-opacity noise field over the backdrop. It breaks up the banding
+   large flat gradients produce on wide displays, and gives the page a physical
+   quality flat color cannot. Inline SVG data-URI: no network request, so it
+   survives the CSP. */
+.bg-wash::after {
+  content: "";
+  position: absolute; inset: 0;
+  opacity: 0.5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+}
+:root[data-theme="light"] .bg-wash::after { opacity: 0.28; }
+
+/* ---- 6. tables ------------------------------------------------------------ */
+tbody tr { transition: background 0.16s var(--ease); }
+tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+thead th {
+  font-size: 10px; font-weight: 640;
+  letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ---- 7. focus -------------------------------------------------------------
+   Keyboard focus should look designed rather than like a browser default, but
+   it must never be removed: it is the only way a keyboard user knows where
+   they are. :focus-visible keeps it off for mouse clicks. */
+:where(a, button, input, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+/* ---- 8. entrance ----------------------------------------------------------
+   Cards settle in on load. Short, small, and once — motion that decorates
+   rather than informs gets tiring on a page someone opens every day. */
+@media (prefers-reduced-motion: no-preference) {
+  .reveal { animation: rise 0.5s var(--ease) both; }
+  .reveal:nth-child(1) { animation-delay: 0.02s; }
+  .reveal:nth-child(2) { animation-delay: 0.06s; }
+  .reveal:nth-child(3) { animation-delay: 0.10s; }
+  .reveal:nth-child(4) { animation-delay: 0.14s; }
+  .reveal:nth-child(n+5) { animation-delay: 0.18s; }
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(9px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---- 9. scrollbar --------------------------------------------------------- */
+* { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb {
+  background: var(--line-2); border-radius: 99px;
+  border: 3px solid transparent; background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--muted); background-clip: content-box; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ---- 10. print ------------------------------------------------------------
+   Someone will print or PDF this to share a result. Drop the ambient wash and
+   the lift so it does not come out grey and shadowed on paper. */
+@media print {
+  .bg-wash, .theme-toggle, .refresh-btn { display: none !important; }
+  .card { box-shadow: none !important; border: 1px solid #ccc !important; break-inside: avoid; }
+  body { background: #fff !important; color: #000 !important; }
+}

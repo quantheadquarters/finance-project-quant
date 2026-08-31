@@ -108,6 +108,23 @@ particular records every trap this codebase has actually sprung.
 
 ---
 
+## Get it running: one click
+
+**Windows** — double-click **`Alpha Engine.bat`**
+**macOS** — double-click **`Alpha Engine.command`**
+**Any platform, from a terminal** — `python launch.py`
+
+That is the whole install. The launcher creates an isolated Python environment
+inside this folder, installs what it needs there, generates a few starter
+signals so the dashboard is not empty, and opens it in your browser. Nothing is
+installed system-wide; deleting the folder removes the project completely.
+
+The only prerequisite is Python 3.10+. If it is missing, the launcher says so
+and links the installer rather than failing with a traceback.
+
+`python launch.py scan BTC` runs any CLI command inside that managed
+environment, so you never have to activate anything by hand.
+
 ## Get it running in one command
 
 You do not need to know Python. Copy these three lines into a terminal:

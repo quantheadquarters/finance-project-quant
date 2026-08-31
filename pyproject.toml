@@ -29,9 +29,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/infoshubhjain/finance-project-quant"
-Repository = "https://github.com/infoshubhjain/finance-project-quant"
-Changelog = "https://github.com/infoshubhjain/finance-project-quant/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/quantheadquarters/finance-project-quant"
+Repository = "https://github.com/quantheadquarters/finance-project-quant"
+Changelog = "https://github.com/quantheadquarters/finance-project-quant/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
