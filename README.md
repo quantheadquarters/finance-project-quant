@@ -8,6 +8,12 @@ and produces a signal with a direction, a calibrated confidence, a full audit
 trail of every contributing opinion, and the price at which its own reasoning
 would be wrong.
 
+![Alpha Engine demo](demo/alpha-engine-demo.gif)
+
+*A real recording: every command above is executed and its actual output
+captured. Re-record with `vhs demo/demo.tape`. The numbers are whatever the
+engine returns on the day it runs — including the ones saying it found nothing.*
+
 > ## ⚠️ Research only
 >
 > **This is not financial advice.** It is not a recommendation and not a
