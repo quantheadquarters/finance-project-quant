@@ -48,6 +48,20 @@ def _num(row: dict[str, Any], *keys: str) -> float | None:
     return None
 
 
+def _date(row: dict[str, Any], *keys: str) -> datetime | None:
+    """First usable FMP timestamp, normalized to UTC."""
+    for key in keys:
+        raw = row.get(key)
+        if not raw:
+            continue
+        try:
+            parsed = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+            return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+    return None
+
+
 def _fetch(endpoint: str, asset: str, limit: int) -> list[dict[str, Any]]:
     try:
         resp = net.get(
@@ -111,6 +125,9 @@ def fetch_fundamentals(
                 asset=asset,
                 period=f"{row.get('calendarYear')}-{row.get('period')}",
                 ts=ts,
+                # `date` is the quarter end, not the day investors learned the
+                # numbers. Backtests must gate on the filing timestamp or abstain.
+                available_at=_date(row, "acceptedDate", "fillingDate", "filingDate"),
                 revenue=revenue,
                 net_income=_num(row, "netIncome"),
                 operating_cash_flow=_num(

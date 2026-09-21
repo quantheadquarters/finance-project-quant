@@ -145,7 +145,8 @@ class Fundamentals(BaseModel):
 
     asset: str
     period: str  # e.g. '2024-Q3' or '2024'
-    ts: datetime
+    ts: datetime  # reporting-period end
+    available_at: datetime | None = None  # when the filing became public; required for backtests
     revenue: float | None = None
     net_income: float | None = None
     operating_cash_flow: float | None = None

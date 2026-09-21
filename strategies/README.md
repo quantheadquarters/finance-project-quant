@@ -34,8 +34,20 @@ class MyStrategy(BaseStrategy):
         return out
 ```
 
-Read `src/alpha_engine/strategy/builtin/` for two complete worked examples.
-`RSIReversal` also shows how to override `verify_on_option`.
+Read `src/alpha_engine/strategy/builtin/` for five complete candidate strategies:
+SMA crossover, RSI reversal, Supertrend flip, Donchian breakout, and
+momentum-with-volume. They are examples to test, not proven alpha. `RSIReversal`
+also shows how to override `verify_on_option`.
+
+Generate an interactive candle, entry-marker, and equity chart with:
+
+```bash
+./start.sh strategy-backtest AAPL --strategy SMACrossover --chart aapl.html
+```
+
+The report embeds its data in the HTML and uses TradingView Lightweight Charts
+for display. Opening the report loads that display library from its CDN; it does
+not fetch market data.
 
 ## Two things the engine does for you
 

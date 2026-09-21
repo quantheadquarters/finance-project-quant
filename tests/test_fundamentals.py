@@ -174,6 +174,7 @@ def test_fmp_parses_and_merges_statements(monkeypatch, tmp_path):
     income = [
         {
             "date": "2025-03-31",
+            "acceptedDate": "2025-05-01 16:05:00",
             "period": "Q1",
             "calendarYear": "2025",
             "revenue": 1000,
@@ -203,6 +204,7 @@ def test_fmp_parses_and_merges_statements(monkeypatch, tmp_path):
     assert out[0].gross_margin == pytest.approx(0.4)
     assert out[0].total_debt == 200
     assert out[0].operating_cash_flow == 120
+    assert out[0].available_at == datetime(2025, 5, 1, 16, 5, tzinfo=timezone.utc)
 
 
 def test_fmp_missing_balance_sheet_keeps_income_data(monkeypatch, tmp_path):

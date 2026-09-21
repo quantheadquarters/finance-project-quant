@@ -32,15 +32,17 @@ from pydantic import BaseModel
 from alpha_engine.analyzers.bollinger import analyze_bollinger
 from alpha_engine.analyzers.crypto_trend import analyze_trend, trend_invalidation
 from alpha_engine.analyzers.forex_trend import analyze_forex_trend
+from alpha_engine.analyzers.fundamentals import analyze_fundamentals
 from alpha_engine.analyzers.macd import analyze_macd
 from alpha_engine.analyzers.macro_context import analyze_macro
 from alpha_engine.analyzers.multi_timeframe import analyze_multi_timeframe
 from alpha_engine.analyzers.rsi import analyze_rsi
+from alpha_engine.analyzers.sentiment import analyze_sentiment
 from alpha_engine.analyzers.support_resistance import analyze_support_resistance
 from alpha_engine.analyzers.volatility import analyze_volatility, volatility_scalar
 from alpha_engine.analyzers.volume import analyze_volume
 from alpha_engine.analyzers.vwap import analyze_vwap
-from alpha_engine.cache.models import MacroObservation, PriceSeries
+from alpha_engine.cache.models import Fundamentals, MacroObservation, NewsItem, PriceSeries
 from alpha_engine.schema.signal import Direction, Market, Signal, SignalSource, Timeframe
 from alpha_engine.synthesis.synthesize import synthesize
 from alpha_engine.validation.outcomes import (
@@ -108,12 +110,28 @@ def _macro_as_of(
     return visible
 
 
+def _news_as_of(items: list[NewsItem] | None, cutoff_ts) -> list[NewsItem]:
+    """Headlines published by the simulated bar, never future news."""
+    return [item for item in items or [] if item.ts <= cutoff_ts]
+
+
+def _fundamentals_as_of(periods: list[Fundamentals] | None, cutoff_ts) -> list[Fundamentals]:
+    """Filings public by the simulated bar.
+
+    Old cache rows without ``available_at`` abstain. Treating their period-end
+    date as publication would reveal earnings weeks before investors saw them.
+    """
+    return [p for p in periods or [] if p.available_at is not None and p.available_at <= cutoff_ts]
+
+
 def signal_at(
     series: PriceSeries,
     t: int,
     market: Market = Market.CRYPTO,
     timeframe: Timeframe = Timeframe.SWING,
     macro_data: dict[str, list[MacroObservation]] | None = None,
+    news_data: list[NewsItem] | None = None,
+    fundamentals_data: list[Fundamentals] | None = None,
 ) -> tuple[Signal, float]:
     """Generate the signal the engine WOULD have emitted at bar index t, seeing
     only bars [0..t] (and only macro observations dated up to bar t). Returns
@@ -155,6 +173,17 @@ def signal_at(
         macro_visible = _macro_as_of(macro_data, visible[-1].ts)
         if macro_visible:
             sources.append(analyze_macro(macro_visible))
+
+    if market in (Market.US_EQUITY, Market.IN_EQUITY):
+        fundamentals_visible = _fundamentals_as_of(fundamentals_data, visible[-1].ts)
+        if fundamentals_visible:
+            sources.append(analyze_fundamentals(fundamentals_visible))
+
+    news_visible = _news_as_of(news_data, visible[-1].ts)
+    if news_visible:
+        sentiment = analyze_sentiment(news_visible, asset=series.asset, now=visible[-1].ts)
+        if sentiment.weight > 0:
+            sources.append(sentiment)
 
     # Same two-part dampening as the live path: weights are scaled for the audit
     # trail, and the scalar is passed to synthesize because that is where it
@@ -232,6 +261,8 @@ def run_backtest(
     warmup: int = DEFAULT_WARMUP,
     step: int = 1,
     macro_data: dict[str, list[MacroObservation]] | None = None,
+    news_data: list[NewsItem] | None = None,
+    fundamentals_data: list[Fundamentals] | None = None,
 ) -> BacktestReport:
     """Backtest the full synthesis pipeline (everything `scan` runs)."""
     return _walk(
@@ -240,7 +271,15 @@ def run_backtest(
         timeframe,
         warmup,
         step,
-        lambda t: signal_at(series, t, market=market, timeframe=timeframe, macro_data=macro_data),
+        lambda t: signal_at(
+            series,
+            t,
+            market=market,
+            timeframe=timeframe,
+            macro_data=macro_data,
+            news_data=news_data,
+            fundamentals_data=fundamentals_data,
+        ),
     )
 
 

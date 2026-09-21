@@ -14,11 +14,20 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from alpha_engine.analyzers.volume import analyze_volume
-from alpha_engine.cache.models import Candle, Interval, MacroObservation, PriceSeries
+from alpha_engine.cache.models import (
+    Candle,
+    Fundamentals,
+    Interval,
+    MacroObservation,
+    NewsItem,
+    PriceSeries,
+)
 from alpha_engine.schema.signal import Market
 from alpha_engine.validation.backtest import (
     ANALYZER_REGISTRY,
     _macro_as_of,
+    _fundamentals_as_of,
+    _news_as_of,
     run_analyzer_backtest,
     run_backtest,
     run_per_analyzer_backtest,
@@ -88,6 +97,110 @@ def test_signal_at_ignores_future_macro():
 
     assert sig_past.direction is sig_future.direction
     assert sig_past.confidence == sig_future.confidence
+
+
+def test_context_as_of_never_reveals_future_news_or_filings():
+    cutoff = T0 + timedelta(days=100)
+    news = [
+        NewsItem(
+            ts=cutoff - timedelta(days=1),
+            headline="Apple profit surges",
+            source="test",
+            asset_tags=["AAPL"],
+        ),
+        NewsItem(
+            ts=cutoff + timedelta(days=1),
+            headline="Apple shares plunge",
+            source="test",
+            asset_tags=["AAPL"],
+        ),
+    ]
+    filings = [
+        Fundamentals(
+            asset="AAPL",
+            period="2024-Q4",
+            ts=cutoff - timedelta(days=40),
+            available_at=cutoff - timedelta(days=2),
+            revenue=100.0,
+        ),
+        Fundamentals(
+            asset="AAPL",
+            period="2025-Q1",
+            ts=cutoff - timedelta(days=10),
+            available_at=cutoff + timedelta(days=2),
+            revenue=200.0,
+        ),
+        # Legacy rows do not reveal when the filing became public, so they abstain.
+        Fundamentals(asset="AAPL", period="unknown", ts=cutoff - timedelta(days=90)),
+    ]
+
+    assert _news_as_of(news, cutoff) == news[:1]
+    assert _fundamentals_as_of(filings, cutoff) == filings[:1]
+
+
+def test_signal_at_ignores_future_news_and_fundamentals():
+    series = _series([100.0 + i * 0.4 for i in range(120)])
+    cutoff = series.candles[100].ts
+    past_news = [
+        NewsItem(
+            ts=cutoff - timedelta(days=1),
+            headline="Apple profit surges",
+            source="test",
+            asset_tags=["AAPL"],
+        )
+    ]
+    future_news = [
+        NewsItem(
+            ts=cutoff + timedelta(days=1),
+            headline="Apple shares plunge on fraud probe",
+            source="test",
+            asset_tags=["AAPL"],
+        )
+    ]
+    past_fundamentals = [
+        Fundamentals(
+            asset="AAPL",
+            period=f"2023-Q{i + 1}",
+            ts=cutoff - timedelta(days=450 - i * 90),
+            available_at=cutoff - timedelta(days=400 - i * 90),
+            revenue=100.0 + i * 10,
+            net_income=10.0,
+            operating_cash_flow=15.0,
+            total_debt=10.0,
+            total_equity=100.0,
+        )
+        for i in range(5)
+    ]
+    future_fundamentals = [
+        Fundamentals(
+            asset="AAPL",
+            period="2025-Q1",
+            ts=cutoff,
+            available_at=cutoff + timedelta(days=5),
+            revenue=1.0,
+            net_income=10.0,
+            operating_cash_flow=1.0,
+            total_debt=1000.0,
+            total_equity=1.0,
+        )
+    ]
+
+    past, _ = signal_at(
+        series,
+        100,
+        market=Market.US_EQUITY,
+        news_data=past_news,
+        fundamentals_data=past_fundamentals,
+    )
+    extended, _ = signal_at(
+        series,
+        100,
+        market=Market.US_EQUITY,
+        news_data=past_news + future_news,
+        fundamentals_data=past_fundamentals + future_fundamentals,
+    )
+
+    assert past.model_dump(exclude={"timestamp"}) == extended.model_dump(exclude={"timestamp"})
 
 
 def test_signal_at_full_pipeline_has_no_lookahead():

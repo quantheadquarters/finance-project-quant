@@ -562,7 +562,18 @@ def cmd_backtest(args: argparse.Namespace) -> int:
     if market in (Market.US_EQUITY, Market.IN_EQUITY):
         macro_data = _load_macro(cache, args.no_refresh) or None
 
-    report = run_backtest(series, market=market, step=args.step, macro_data=macro_data)
+    report = run_backtest(
+        series,
+        market=market,
+        step=args.step,
+        macro_data=macro_data,
+        news_data=_load_news(cache),
+        fundamentals_data=(
+            _load_fundamentals(cache, asset)
+            if market in (Market.US_EQUITY, Market.IN_EQUITY)
+            else None
+        ),
+    )
     print(report.model_dump_json(indent=2))
     return 0
 
@@ -1204,6 +1215,12 @@ def cmd_strategy_backtest(args: argparse.Namespace) -> int:
     except (KeyError, ValueError) as e:
         print(f"[error] {str(e).strip(chr(39))}", file=sys.stderr)
         return 1
+
+    if args.chart:
+        from alpha_engine.strategy.chart import write_backtest_chart
+
+        chart_path = write_backtest_chart(args.chart, series, report)
+        print(f"[chart] wrote {chart_path}", file=sys.stderr)
 
     if args.json:
         print(report.model_dump_json(indent=2))
@@ -1990,6 +2007,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--trades", type=int, default=0, metavar="N", help="also print the last N trades"
     )
     sbt.add_argument("--json", action="store_true", help="emit the full report as JSON")
+    sbt.add_argument(
+        "--chart",
+        metavar="PATH",
+        help="write an interactive TradingView Lightweight Charts HTML report",
+    )
     sbt.add_argument("--no-refresh", action="store_true", help="use cached prices only")
     sbt.set_defaults(func=cmd_strategy_backtest)
 

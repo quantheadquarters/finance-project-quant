@@ -85,6 +85,58 @@ def test_honest_strategy_reports_no_lookahead():
     assert report.lookahead_violations == []
 
 
+@pytest.mark.parametrize(
+    "name",
+    ["SMACrossover", "RSIReversal", "SupertrendFlip", "DonchianBreakout", "MomentumVolume"],
+)
+def test_all_five_builtin_candidates_are_aligned_and_lookahead_clean(name):
+    prices = [100.0 + i * 0.2 + (i % 11 - 5) * 1.5 for i in range(180)]
+    series = _series(prices)
+    strategy = load_strategy(name, directory="/nonexistent")
+    signals = strategy.generate_signals(series.candles)
+    report = run_strategy_backtest(strategy, series)
+
+    assert len(signals) == len(series.candles)
+    assert set(signals) <= {-1, 0, 1}
+    assert report.lookahead_violations == []
+
+
+def test_donchian_breakout_uses_the_prior_range_not_the_current_bar():
+    series = _series([100.0] * 20 + [110.0])
+    strategy = load_strategy("DonchianBreakout", directory="/nonexistent")
+
+    assert strategy.generate_signals(series.candles)[-1] == 1
+
+
+def test_momentum_volume_requires_current_volume_confirmation():
+    closes = [100.0] * 20 + [110.0]
+    quiet = _series(closes, volume=1000.0)
+    loud = quiet.model_copy(
+        update={
+            "candles": quiet.candles[:-1]
+            + [quiet.candles[-1].model_copy(update={"volume": 5000.0})]
+        }
+    )
+    strategy = load_strategy("MomentumVolume", directory="/nonexistent")
+
+    assert strategy.generate_signals(quiet.candles)[-1] == 0
+    assert strategy.generate_signals(loud.candles)[-1] == 1
+
+
+def test_chart_embeds_candles_signals_equity_and_required_attribution(tmp_path):
+    from alpha_engine.strategy.chart import write_backtest_chart
+
+    series = _series([100.0 + i for i in range(60)], asset="AAPL")
+    report = run_strategy_backtest(AlwaysLong(), series, check_lookahead=False)
+    path = write_backtest_chart(tmp_path / "aapl.html", series, report)
+    page = path.read_text()
+
+    assert "lightweight-charts@5.2.1" in page
+    assert "AAPL" in page and "LONG" in page
+    assert '"equity"' in page and '"candles"' in page
+    assert "TradingView Lightweight Charts" in page
+
+
 def test_lookahead_check_can_be_disabled():
     report = run_strategy_backtest(
         Peeker(), _series([100 + (i % 5) for i in range(40)]), check_lookahead=False

@@ -86,11 +86,14 @@ of hit probability, built from:
 ## The no-lookahead guarantee
 
 All backtest signals are generated through one choke point:
-`signal_at(series, t)` truncates candles to `[0..t]` **before** any analysis,
-and filters macro observations to those dated on or before bar `t`. Tests pin
-the guarantee by asserting the signal at bar `t` is byte-identical whether or
-not a wild future exists in the input. If you add an input to `signal_at`,
-you must truncate it the same way and add the same pin.
+`signal_at(series, t)` truncates candles to `[0..t]` **before** any analysis.
+It also filters macro observations and news to what existed by bar `t`, and
+admits a fundamental filing only after its publication timestamp
+(`available_at`). Legacy fundamental records without that timestamp abstain in
+a replay: guessing that a quarter-end value was public on quarter end would leak
+future earnings. Tests pin every input by asserting the signal at bar `t` is
+unchanged when future data is added. If you add an input to `signal_at`, truncate
+it the same way and add the same pin.
 
 ## Portfolio layer
 
