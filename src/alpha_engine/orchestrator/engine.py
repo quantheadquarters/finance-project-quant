@@ -47,7 +47,14 @@ from typing import Any
 from alpha_engine import health
 from alpha_engine.cache.interface import Cache, is_stale
 from alpha_engine.cache.models import PriceSeries
-from alpha_engine.ingestion import binance_futures, bybit_futures, gate_futures
+from alpha_engine.ingestion import (
+    binance_futures,
+    bybit_futures,
+    coingecko,
+    fmp,
+    gate_futures,
+    sec_fundamentals,
+)
 from alpha_engine.schema.signal import Market
 
 #: Futures positioning adapters, tried in order until one returns data.
@@ -241,6 +248,13 @@ def stale_kinds(cache: Cache, assets: tuple[str, ...]) -> set[str]:
         stale.add("onchain")
 
     for asset in assets:
+        # Crypto cannot have company filings. Do not keep the whole context
+        # pipeline stale forever because BTC has no balance sheet.
+        if coingecko.supports(asset) or (
+            not fmp.has_key()
+            and (not sec_fundamentals.supports(asset) or not sec_fundamentals.has_user_agent())
+        ):
+            continue
         rows, fund_stale = cache.get_fundamentals(asset)
         if not rows or fund_stale:
             stale.add("fundamentals")
@@ -404,12 +418,34 @@ def refresh_context(
         return counts
 
     def _fundamentals() -> dict[str, int]:
-        return {"fmp": sum(len(fmp.fetch_fundamentals(a, cache=cache)) for a in assets)}
+        counts: dict[str, int] = {}
+        for asset in assets:
+            if coingecko.supports(asset):
+                continue
+            if fmp.has_key():
+                fetched = fmp.fetch_fundamentals(asset, cache=cache)
+                counts["fmp"] = counts.get("fmp", 0) + len(fetched)
+            else:
+                fetched = []
+            if (
+                not fetched
+                and sec_fundamentals.supports(asset)
+                and sec_fundamentals.has_user_agent()
+            ):
+                counts[f"sec_{asset.lower()}"] = len(
+                    sec_fundamentals.fetch_fundamentals(asset, cache=cache)
+                )
+        return counts
 
     run("news", _news)
     run("events", _events)
     run("onchain", _onchain)
-    run("fundamentals", _fundamentals, enabled=fmp.has_key())
+    run(
+        "fundamentals",
+        _fundamentals,
+        enabled=fmp.has_key()
+        or (sec_fundamentals.has_user_agent() and any(map(sec_fundamentals.supports, assets))),
+    )
 
     return report
 

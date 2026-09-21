@@ -59,6 +59,21 @@ def test_fundamentals_retention_covers_year_over_year_growth():
     assert RETENTION["fundamentals"] > timedelta(days=460)
 
 
+def test_fundamentals_freshness_uses_fetch_time_not_quarter_end(tmp_path):
+    cache = Cache(LocalStore(tmp_path))
+    cache.put_fundamentals(
+        "AAPL",
+        [
+            Fundamentals(
+                asset="AAPL", period="2025-Q1", ts=datetime.now(timezone.utc) - timedelta(days=90)
+            )
+        ],
+    )
+    items, stale = cache.get_fundamentals("AAPL")
+    assert len(items) == 1
+    assert stale is False
+
+
 def test_onchain_retention_is_generous_enough_for_history():
     assert RETENTION["onchain"] >= timedelta(days=365)
 

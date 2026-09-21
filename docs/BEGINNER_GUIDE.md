@@ -70,8 +70,8 @@ Optional context sources need free API credentials in `.env`:
 
 ```text
 FINNHUB_API_KEY=...   # company-tagged news
-FMP_API_KEY=...       # company fundamentals
-SEC_USER_AGENT=Name email@example.com  # SEC filing headlines
+FMP_API_KEY=...       # optional company fundamentals source
+SEC_USER_AGENT=Name email@example.com  # SEC filings and keyless AAPL fundamentals
 LLM_API_KEY=...       # prose only; never signal numbers
 ```
 
@@ -234,4 +234,3 @@ end-to-end check.
   numbers.
 - The source of truth for current limitations is `FINDINGS.md`; planned work is
   in `FUTURE_WORK.md`.
-

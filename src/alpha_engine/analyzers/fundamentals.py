@@ -80,15 +80,23 @@ def leverage_ratio(period: Fundamentals) -> float | None:
 
 
 def revenue_growth(periods: list[Fundamentals]) -> float | None:
-    """Year-over-year revenue growth using the newest period against the one
-    four quarters back. Falls back to the oldest available period when there
-    is less than a year of data, which is stated in the detail string rather
-    than hidden."""
+    """Year-over-year growth only when the matching quarter is actually present.
+
+    Counting four rows back lies when a source skips Q4; comparing adjacent
+    quarters is not year-over-year growth either. Missing comparison abstains.
+    """
     ordered = [p for p in _ordered(periods) if p.revenue is not None and p.revenue > 0]
     if len(ordered) < 2:
         return None
     latest = ordered[-1]
-    base = ordered[-5] if len(ordered) >= 5 else ordered[0]
+    try:
+        year, quarter = latest.period.split("-")
+        previous_period = f"{int(year) - 1}-{quarter}"
+    except ValueError:
+        return None
+    base = next((p for p in reversed(ordered[:-1]) if p.period == previous_period), None)
+    if base is None:
+        return None
     return latest.revenue / base.revenue - 1.0
 
 

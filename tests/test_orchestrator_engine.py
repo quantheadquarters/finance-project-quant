@@ -281,7 +281,16 @@ def test_news_triggers_are_deterministically_ordered(tmp_path):
 
 def test_empty_cache_is_stale_in_every_kind(tmp_path):
     stale = stale_kinds(_cache(tmp_path), ("BTC",))
-    assert {"news", "onchain", "fundamentals", "price"} <= stale
+    assert {"news", "onchain", "price"} <= stale
+    assert "fundamentals" not in stale  # BTC has no company filings
+
+
+def test_empty_apple_fundamentals_need_refresh_when_sec_is_configured(monkeypatch, tmp_path):
+    from alpha_engine.ingestion import fmp, sec_fundamentals
+
+    monkeypatch.setattr(fmp, "has_key", lambda: False)
+    monkeypatch.setattr(sec_fundamentals, "has_user_agent", lambda: True)
+    assert "fundamentals" in stale_kinds(_cache(tmp_path), ("AAPL",))
 
 
 def test_fresh_news_is_not_reported_stale(tmp_path):

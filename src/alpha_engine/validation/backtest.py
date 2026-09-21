@@ -168,6 +168,7 @@ def signal_at(
     for volume_src in (analyze_volume(past), analyze_vwap(past)):
         if volume_src.weight > 0:
             sources.append(volume_src)
+    primary_sources = sources.copy() if market in (Market.US_EQUITY, Market.IN_EQUITY) else None
 
     if market in (Market.US_EQUITY, Market.IN_EQUITY) and macro_data:
         macro_visible = _macro_as_of(macro_data, visible[-1].ts)
@@ -204,6 +205,7 @@ def signal_at(
         sources=sources,
         timeframe=timeframe,
         conviction_scalar=scalar,
+        primary_sources=primary_sources,
     )
     # Invalidation follows the SYNTHESIZED direction, not the raw source's: a
     # zero-weight bullish source synthesizes to neutral, which must carry no level.

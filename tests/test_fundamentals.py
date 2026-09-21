@@ -72,12 +72,23 @@ def test_leverage_ratio_none_on_negative_equity():
 
 def test_revenue_growth_year_over_year():
     periods = [_period(i, revenue=r) for i, r in enumerate([1000, 1000, 1000, 1000, 1200])]
+    periods[-1] = periods[-1].model_copy(update={"period": "2026-Q1"})
     assert revenue_growth(periods) == pytest.approx(0.2)
 
 
-def test_revenue_growth_falls_back_with_short_history():
+def test_revenue_growth_abstains_without_matching_year_ago_quarter():
     periods = [_period(0, revenue=1000.0), _period(1, revenue=1100.0)]
-    assert revenue_growth(periods) == pytest.approx(0.1)
+    assert revenue_growth(periods) is None
+
+
+def test_revenue_growth_ignores_missing_intermediate_quarters():
+    periods = [
+        _period(0, period="2025-Q3", revenue=1000.0),
+        _period(1, period="2026-Q1", revenue=1200.0),
+        _period(2, period="2026-Q2", revenue=1300.0),
+        _period(3, period="2026-Q3", revenue=1400.0),
+    ]
+    assert revenue_growth(periods) == pytest.approx(0.4)
 
 
 def test_revenue_growth_none_with_one_period():

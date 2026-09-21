@@ -452,6 +452,7 @@ def _build_price_signal(
     for volume_src in (analyze_volume(series), analyze_vwap(series)):
         if volume_src.weight > 0:
             sources.append(volume_src)
+    primary_sources = sources.copy() if market in (Market.IN_EQUITY, Market.US_EQUITY) else None
 
     if market in (Market.IN_EQUITY, Market.US_EQUITY):
         macro_data = _load_macro(cache, no_refresh)
@@ -514,6 +515,7 @@ def _build_price_signal(
         sources=sources,
         timeframe=Timeframe.SWING,
         conviction_scalar=vol_scalar * cal_scalar,
+        primary_sources=primary_sources,
     )
     invalidation = trend_invalidation(series.candles, signal.direction)
     signal = signal.model_copy(update={"invalidation_level": invalidation})

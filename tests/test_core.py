@@ -123,6 +123,40 @@ def test_synthesis_empty_sources_is_neutral():
     assert sig.confidence == 0.0
 
 
+def test_equity_context_can_confirm_but_cannot_invent_or_reverse_price_direction():
+    price = [
+        SignalSource(name="trend", direction=Direction.BULLISH, weight=0.4),
+        SignalSource(name="macd", direction=Direction.BEARISH, weight=0.4),
+    ]
+    bullish_context = SignalSource(name="fundamentals", direction=Direction.BULLISH, weight=0.35)
+    assert (
+        synthesize("AAPL", Market.US_EQUITY, price + [bullish_context]).direction
+        is Direction.BULLISH
+    )
+    anchored = synthesize(
+        "AAPL", Market.US_EQUITY, price + [bullish_context], primary_sources=price
+    )
+    assert anchored.direction is Direction.NEUTRAL
+    assert anchored.confidence == 0.0
+
+    bullish_price = [SignalSource(name="trend", direction=Direction.BULLISH, weight=0.4)]
+    alone = synthesize("AAPL", Market.US_EQUITY, bullish_price, primary_sources=bullish_price)
+    confirmed = synthesize(
+        "AAPL",
+        Market.US_EQUITY,
+        bullish_price + [bullish_context],
+        primary_sources=bullish_price,
+    )
+    assert confirmed.direction is Direction.BULLISH
+    assert confirmed.confidence > alone.confidence
+
+    bearish_price = [SignalSource(name="trend", direction=Direction.BEARISH, weight=0.2)]
+    vetoed = synthesize(
+        "AAPL", Market.US_EQUITY, bearish_price + [bullish_context], primary_sources=bearish_price
+    )
+    assert vetoed.direction is Direction.NEUTRAL
+
+
 def test_confidence_lower_with_fewer_sources():
     """One source should produce lower confidence than three agreeing sources,
     even with the same agreement quality. This tests the source-count cap."""

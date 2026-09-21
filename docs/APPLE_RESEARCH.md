@@ -17,16 +17,17 @@ company news -> capped deterministic sentiment vote ----/
 optional LLM -> thesis wording only, after the signal is frozen
 ```
 
-Technical evidence remains primary because there are several independent price
-analyzers and contextual sources are capped. The fundamental analyzer has a
+Technical evidence remains primary: the price/volume votes establish the
+direction first. Context may confirm that direction or veto it to neutral, but
+cannot create or reverse a trade on its own. The fundamental analyzer has a
 maximum weight of 0.35 and sentiment a maximum of 0.30. Missing context abstains;
 it never becomes a made-up neutral or a guessed value.
 
-The fundamental analyzer scores business facts such as revenue and earnings
-growth, margins, free cash flow, leverage, and valuation. The sentiment analyzer
-uses a transparent positive/negative finance lexicon, headline relevance, source
-diversity, recency decay, and conflicting-headline penalties. Neither uses an LLM
-or makes a network call.
+The fundamental analyzer scores operating-cash-flow quality relative to net
+income, leverage, and matching-quarter year-over-year revenue growth. Gross
+margin is stored for inspection but is not currently a vote. The sentiment
+analyzer uses a transparent positive/negative finance lexicon, ticker tags,
+and recency decay. Neither uses an LLM or makes a network call.
 
 ## The hardcoded and LLM comparison
 
@@ -50,18 +51,34 @@ Use:
 ./start.sh scan AAPL --no-record --llm
 ```
 
-`FINNHUB_API_KEY` supplies company news, `FMP_API_KEY` supplies fundamentals,
-and `LLM_API_KEY` enables the prose rewrite. Without those keys, price analysis
-still works and the optional layers abstain. At the time of this investigation,
-the local cache had AAPL candles but no AAPL fundamentals or company-tagged news,
-and no LLM key was configured. A real combined-context versus LLM wording run
-therefore cannot be claimed from this machine yet.
+`SEC_USER_AGENT` (your name and contact email, not an API key) now enables
+Apple fundamentals from the [SEC company-facts API](https://www.sec.gov/search-filings/edgar-application-programming-interfaces).
+`FMP_API_KEY` remains an optional alternative for other equities;
+`FINNHUB_API_KEY` supplies independent company news; `LLM_API_KEY` enables the
+prose rewrite. Without a key, the LLM mode falls back to the template. Its
+numeric fields were checked against the deterministic mode and matched exactly;
+an actual LLM response could not be tested because no LLM key was configured.
 
-The full engine replay on those cached candles generated 17 resolved directional
-signals and hit 7: a **41.18% hit rate** with **-0.48% average captured move**.
-Because the optional Apple context was absent, that result measures the available
-price pipeline, not the desired price-plus-fundamentals-plus-news model. It is
-further evidence against claiming current alpha.
+The live SEC ingestion normalized quarterly rows, including Q4 values derived
+from filed annual minus nine-month statements; the local cache retains the latest
+20. Apple’s latest cached fiscal 2026 Q3 row includes revenue
+of $109.417 billion, net income of $29.789 billion, derived standalone-quarter
+operating cash flow of $34.369 billion, and a 16.4% year-over-year revenue
+increase. The SEC filing was dated July 31, 2026; the replay conservatively
+admits it starting August 1 UTC. The [filed 10-Q](https://www.sec.gov/Archives/edgar/data/320193/000032019326000020/aapl-20260627.htm)
+is the source for the reported figures. The cash-flow quarter is derived from
+SEC year-to-date facts, not quoted as an independently reported quarterly line.
+
+On the same cached 276-bar Apple sample, technical-only replay resolved 17
+directional calls and hit 7 (**41.18%**, average captured move **-0.48%**).
+Technical plus filing-date-gated SEC fundamentals resolved 16 and hit 7
+(**43.75%**, average captured move **-0.47%**). The latter abstained on one more
+call, so the percentages are not a matched-trade improvement claim. Both
+average captured moves are negative: **no alpha was detected**.
+
+At the latest cached price, technical evidence was conflicted and neutral.
+Fundamentals were bullish with a 0.2333 source weight, but the final decision
+remained neutral, exactly as the technical-first rule requires.
 
 ## Point-in-time repair made for a valid replay
 
@@ -69,7 +86,8 @@ The engine backtest now replays cached news and fundamentals in addition to
 price and macro data. This needed one important guard:
 
 - A report's quarter-end date is not the day investors learned its contents.
-- `Fundamentals.available_at` stores the filing/publication timestamp from FMP.
+- `Fundamentals.available_at` stores FMP's publication timestamp, or the day
+  after the SEC filing date when only a date is available.
 - During a replay, a filing becomes visible only at that timestamp.
 - Old records without a publication timestamp abstain rather than pretending
   they were public at quarter end.
@@ -78,6 +96,20 @@ News is likewise filtered to headlines published by the simulated candle time,
 and its recency calculation uses that historical time rather than today's date.
 Focused tests add extreme future news and fundamentals and verify that an earlier
 signal is unchanged.
+
+This is a filing-date-gated replay, not a perfect historical data-vintage
+archive: the SEC company-facts endpoint is a current snapshot, and later SEC
+corrections or removals may change which old facts are present. The parser
+selects the earliest filed version it can see, but a truly untouched historical
+study would archive each feed snapshot as it arrived.
+
+The existing public RSS refresh fetched 1,290 headlines, but **zero were tagged
+AAPL**, so the Apple news-sentiment source correctly abstained with zero weight.
+The official [Apple Newsroom RSS feed](https://www.apple.com/newsroom/rss-feed.rss)
+was also checked: its latest 20 product/entertainment headlines had no matches
+for this finance lexicon. Treating company promotional copy as independent
+market sentiment would be misleading. A Finnhub key or another independently
+verifiable company-news source is needed for a real news comparison.
 
 ## Five strategy candidates
 
@@ -180,7 +212,8 @@ strategy candidates, stress tests, and an interactive chart artifact. It does
 
 The next useful experiment is not another indicator. It is more honest data:
 
-1. configure the existing FMP and Finnhub sources and build point-in-time history;
+1. configure Finnhub or another independent company-news source and build
+   point-in-time headline history;
 2. reserve a genuinely untouched future period before choosing parameters;
 3. compare against buy-and-hold and a risk-matched benchmark after costs;
 4. require stable results across nearby parameters and multiple market regimes;

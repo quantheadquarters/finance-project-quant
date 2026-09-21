@@ -307,6 +307,11 @@ class LocalStore:
             _warn_corrupt(p, e)
             return []
 
+    def collection_fetched_at(self, kind: str, bucket: str) -> datetime | None:
+        """File write time, which is not the date of the newest reported fact."""
+        p = self._collection_path(kind, bucket)
+        return datetime.fromtimestamp(p.stat().st_mtime, tz=timezone.utc) if p.exists() else None
+
     def read_all_collection(self, kind: str) -> list[Any]:
         """Every bucket of a kind, concatenated. This is what an analyzer wants:
         all the news, regardless of which feed carried it."""
@@ -397,7 +402,12 @@ class Cache:
         self.store.write_collection("onchain", metric, items)
 
     def get_fundamentals(self, asset: str) -> tuple[list[Fundamentals], bool]:
-        return self._get_collection("fundamentals", asset.upper())
+        asset = asset.upper()
+        items = self.store.read_collection("fundamentals", asset)
+        if not items:
+            return [], True
+        fetched_at = self.store.collection_fetched_at("fundamentals", asset)
+        return items, fetched_at is None or is_stale(fetched_at, "fundamentals")
 
     def put_fundamentals(self, asset: str, items: list[Fundamentals]) -> None:
         self.store.write_collection("fundamentals", asset.upper(), items)

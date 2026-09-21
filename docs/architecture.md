@@ -89,7 +89,8 @@ All backtest signals are generated through one choke point:
 `signal_at(series, t)` truncates candles to `[0..t]` **before** any analysis.
 It also filters macro observations and news to what existed by bar `t`, and
 admits a fundamental filing only after its publication timestamp
-(`available_at`). Legacy fundamental records without that timestamp abstain in
+(`available_at`). The SEC source conservatively uses the next UTC day when it
+provides only a filing date. Legacy fundamental records without that timestamp abstain in
 a replay: guessing that a quarter-end value was public on quarter end would leak
 future earnings. Tests pin every input by asserting the signal at bar `t` is
 unchanged when future data is added. If you add an input to `signal_at`, truncate

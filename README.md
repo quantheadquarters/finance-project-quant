@@ -602,9 +602,9 @@ fill in only what you want.
 |---|---|---|
 | `FRED_API_KEY` | US macro (rates, CPI, unemployment) | https://fred.stlouisfed.org |
 | `FINNHUB_API_KEY` | Company-tagged news | https://finnhub.io |
-| `FMP_API_KEY` | Company fundamentals | https://financialmodelingprep.com |
+| `FMP_API_KEY` | Optional company fundamentals beyond the built-in Apple SEC source | https://financialmodelingprep.com |
 | `GLASSNODE_API_KEY` | Crypto on-chain flows | https://glassnode.com |
-| `SEC_USER_AGENT` | SEC EDGAR filings | **no signup** — just your name + email |
+| `SEC_USER_AGENT` | SEC EDGAR filings and AAPL quarterly fundamentals | **no signup** — just your name + email |
 | `LLM_API_KEY` | AI-written thesis prose (never a number) | any provider |
 | `OANDA_API_KEY` | Forex price data | https://oanda.com |
 | `BREEZE_API_KEY` / `ANGEL_ONE_API_KEY` | Indian F&O chains | broker account |

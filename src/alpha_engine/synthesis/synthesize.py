@@ -198,6 +198,7 @@ def synthesize(
     timeframe: Timeframe = Timeframe.SWING,
     invalidation_level: float | None = None,
     conviction_scalar: float = 1.0,
+    primary_sources: list[SignalSource] | None = None,
 ) -> Signal:
     """Assemble the final Signal. thesis is left blank; the narrator fills it.
 
@@ -217,8 +218,13 @@ def synthesize(
     the weights are the explanation, and this parameter is the effect.
 
     Bounded to (0, 1]: a regime layer may only ever reduce conviction.
+
+    For equity research, ``primary_sources`` are price/volume votes. Context
+    can confirm or veto their direction, but cannot invent the opposite trade.
     """
     direction, net = _net_direction(sources)
+    if primary_sources is not None and direction is not _net_direction(primary_sources)[0]:
+        direction, net = Direction.NEUTRAL, 0.0
     confidence = _calibrate_confidence(sources, direction, net)
 
     scalar = max(0.0, min(conviction_scalar, 1.0))
