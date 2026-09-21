@@ -4,7 +4,7 @@ import math
 from datetime import datetime, timedelta, timezone
 
 from alpha_engine.cache.models import Candle, Interval, PriceSeries
-from alpha_engine.quant.cross_sectional import evaluate_cross_sectional
+from alpha_engine.quant.cross_sectional import _rank_ic, evaluate_cross_sectional
 
 
 def _persistent_trends() -> dict[str, PriceSeries]:
@@ -46,3 +46,8 @@ def test_walk_forward_model_finds_persistent_cross_sectional_structure() -> None
     assert report.total_return > report.shuffled_total_return
     assert report.mean_rank_ic is not None and report.mean_rank_ic > 0.8
     assert "still not alpha" in report.verdict
+
+
+def test_rank_ic_does_not_invent_order_when_predictions_are_tied() -> None:
+    assert _rank_ic([1.0, 1.0, 1.0, 1.0], [1.0, 2.0, 3.0, 4.0]) is None
+    assert _rank_ic([1.0, 1.0, 2.0, 2.0], [1.0, 2.0, 3.0, 4.0]) is not None

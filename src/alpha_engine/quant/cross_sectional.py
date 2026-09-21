@@ -27,6 +27,7 @@ from statistics import mean, pstdev
 from alpha_engine.cache.interface import Cache
 from alpha_engine.cache.models import PriceSeries
 from alpha_engine.quant.factors import compute_panel
+from alpha_engine.quant.ranking import _spearman_rank
 
 DEFAULT_FACTORS = (
     "mom_20",
@@ -104,18 +105,10 @@ def _zscore_rows(rows: list[list[float]]) -> list[list[float]]:
     return [[(value - centers[i]) / scales[i] for i, value in enumerate(row)] for row in rows]
 
 
-def _rank(values: Sequence[float]) -> list[float]:
-    ordered = sorted(range(len(values)), key=values.__getitem__)
-    ranks = [0.0] * len(values)
-    for rank, index in enumerate(ordered):
-        ranks[index] = float(rank)
-    return ranks
-
-
 def _rank_ic(predicted: list[float], actual: list[float]) -> float | None:
     if len(predicted) < 3:
         return None
-    x, y = _rank(predicted), _rank(actual)
+    x, y = _spearman_rank(predicted), _spearman_rank(actual)
     mx, my = mean(x), mean(y)
     numerator = sum((a - mx) * (b - my) for a, b in zip(x, y))
     denominator = math.sqrt(sum((a - mx) ** 2 for a in x) * sum((b - my) ** 2 for b in y))
