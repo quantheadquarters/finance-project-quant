@@ -414,7 +414,8 @@ class MyStrategy(BaseStrategy):
 
 You get trades, an equity curve, Sharpe / Sortino / Calmar, max drawdown, win
 rate and profit factor. Two guards are built in rather than left to discipline:
-the position is filled one bar *after* the signal, and every run re-executes your
+the position is filled at the **next bar's open** (so it cannot collect an
+earlier overnight gap), and every run re-executes your
 strategy on truncated history to catch it reading future bars. **If it reports a
 lookahead violation, every other number in that report is void** — which is the
 point of checking.
@@ -422,7 +423,9 @@ point of checking.
 The `--option` flag is the idea worth stealing: a signal on the index does not
 become a trade until the option's own chart confirms it. Override
 `verify_on_option` to confirm on volume, open interest, or anything else in your
-option data.
+option data. Confirmation sees only option bars available by that signal;
+missing option quotes cannot confirm, and `--trade-on option` requires a quote
+on every traded bar instead of pretending a stale quote was executable.
 
 ### Use it from an AI assistant
 

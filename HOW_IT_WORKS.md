@@ -390,6 +390,10 @@ so the `coverage` column means something.
 - `calibrate.py` — derives `SOURCE_RELIABILITY` from outcomes with shrinkage
   toward the prior, so a lucky 5-sample analyzer does not get promoted.
 - `options_backtest.py` — model-priced ATM option legs via Black-Scholes.
+- `compare_context.py` — offline, same-date comparison of technical signals
+  with dated fundamentals and optional historical news.
+- `trade_experiment.py` — next-open, costed account replay of those signal
+  modes against same-window buy-and-hold; research only, not proven alpha.
 
 ### The read-only rule for context data
 

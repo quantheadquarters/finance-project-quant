@@ -11,6 +11,7 @@ broken:
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -135,6 +136,8 @@ def test_chart_embeds_candles_signals_equity_and_required_attribution(tmp_path):
     assert "AAPL" in page and "LONG" in page
     assert '"equity"' in page and '"candles"' in page
     assert "TradingView Lightweight Charts" in page
+    chart_data = json.loads(page.split("const data=", 1)[1].split(";\nconst options", 1)[0])
+    assert chart_data["markers"][0]["time"] == int(series.candles[2].ts.timestamp())
 
 
 def test_lookahead_check_can_be_disabled():
@@ -152,14 +155,23 @@ def test_lookahead_check_can_be_disabled():
 
 def test_position_is_lagged_one_bar():
     """Signal fires on bar 1. The return of bar 1 must NOT be captured; the
-    first captured return is bar 2's."""
+    first captured return starts at bar 2's open."""
+    series = _series([100.0, 110.0, 121.0])
+    series.candles[2] = series.candles[2].model_copy(update={"open": 110.0})
+    report = run_strategy_backtest(AlwaysLong(), series, txn_cost_bps=0.0, check_lookahead=False)
+    assert report.position == [0, 0, 1]
+    # Bar 1's rise is missed; only bar 2's open-to-close rise is captured.
+    assert report.equity_curve[1] == pytest.approx(100_000.0)
+    assert report.equity_curve[2] == pytest.approx(110_000.0)
+    assert report.trades[0].entry_price == 110.0
+
+
+def test_next_open_fill_does_not_capture_prior_overnight_gap():
     report = run_strategy_backtest(
         AlwaysLong(), _series([100.0, 110.0, 121.0]), txn_cost_bps=0.0, check_lookahead=False
     )
-    assert report.position == [0, 1, 1]
-    # bar 1 return (+10%) is missed; bar 2 return (+10%) is captured.
-    assert report.equity_curve[1] == pytest.approx(100_000.0)
-    assert report.equity_curve[2] == pytest.approx(110_000.0)
+    assert report.equity_curve[-1] == pytest.approx(100_000.0)
+    assert report.trades[0].entry_price == 121.0
 
 
 def test_transaction_cost_is_charged_on_position_change():
@@ -171,6 +183,28 @@ def test_transaction_cost_is_charged_on_position_change():
     )
     assert free.equity_curve[-1] == pytest.approx(100_000.0)
     assert costly.equity_curve[-1] < free.equity_curve[-1]
+
+
+def test_backtest_rejects_fake_profit_from_negative_costs():
+    with pytest.raises(ValueError, match="txn_cost_bps"):
+        run_strategy_backtest(
+            AlwaysLong(), _series([100.0] * 3), txn_cost_bps=-10, check_lookahead=False
+        )
+
+
+def test_short_account_cannot_revive_after_overnight_ruin():
+    class AlwaysShort(BaseStrategy):
+        name = "Always Short"
+        params: dict = {}
+
+        def generate_signals(self, candles):
+            return [-1] + [0] * (len(candles) - 1)
+
+    series = _series([100.0, 100.0, 900.0])
+    series.candles[2] = series.candles[2].model_copy(update={"open": 300.0})
+    report = run_strategy_backtest(AlwaysShort(), series, txn_cost_bps=0, check_lookahead=False)
+    assert report.ruined_at_bar == 2
+    assert report.metrics.total_return_pct == -100.0
 
 
 # --------------------------------------------------------------------------
@@ -215,7 +249,7 @@ def test_verify_on_option_never_sees_future_bars():
             return out
 
         def verify_on_option(self, option_candles, t, signal):
-            seen.append(len(option_candles[: t + 1]))
+            seen.append(len(option_candles))
             return True
 
     under = _series([100.0 + i for i in range(20)])
@@ -227,6 +261,7 @@ def test_verify_on_option_never_sees_future_bars():
 def test_trade_on_option_uses_the_option_leg_for_pnl():
     under = _series([100.0, 100.0, 100.0, 100.0])  # underlying goes nowhere
     opt = _series([10.0, 10.0, 20.0, 20.0], asset="TEST_CE")  # option doubles
+    opt.candles[2] = opt.candles[2].model_copy(update={"open": 10.0})
     report = run_strategy_backtest(
         AlwaysLong(),
         under,
@@ -269,6 +304,35 @@ def test_alignment_with_no_option_returns_underlying_untouched():
     trimmed, aligned = align_option_to_underlying(under.candles, [])
     assert trimmed == under.candles
     assert aligned == []
+
+
+def test_sparse_option_quotes_cannot_be_filled_at_stale_prices():
+    under = _series([100.0] * 5)
+    sparse = PriceSeries(
+        asset="CE", interval=Interval.DAY, candles=[under.candles[0], under.candles[3]]
+    )
+    with pytest.raises(ValueError, match="quote on every traded bar"):
+        run_strategy_backtest(AlwaysLong(), under, sparse, trade_on="option", check_lookahead=False)
+
+
+def test_stale_option_quote_cannot_confirm_a_signal():
+    class SignalOnGap(BaseStrategy):
+        name = "Signal On Gap"
+        params: dict = {}
+
+        def generate_signals(self, candles):
+            return [0, 1, 0, 0]
+
+        def verify_on_option(self, option_candles, t, signal):
+            return True
+
+    under = _series([100.0] * 4)
+    sparse = PriceSeries(
+        asset="CE", interval=Interval.DAY, candles=[under.candles[0], under.candles[2]]
+    )
+    report = run_strategy_backtest(SignalOnGap(), under, sparse, check_lookahead=False)
+    assert report.signals_confirmed == 0
+    assert report.metrics.total_return_pct == 0.0
 
 
 # --------------------------------------------------------------------------

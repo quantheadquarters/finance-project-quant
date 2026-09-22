@@ -10,6 +10,8 @@ venv/
 
 # Cached market data (regenerated on run; not committed)
 data/cache/
+# Historical third-party headlines may carry redistribution restrictions.
+data/research/
 
 # The immutable signal log is YOUR research record and the project's compounding
 # asset. It IS versioned now: the daily GitHub Action (.github/workflows/

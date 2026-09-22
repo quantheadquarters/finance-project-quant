@@ -9,7 +9,9 @@ tolerance for non-determinism, something has gone badly wrong.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
+
+import pytest
 
 from alpha_engine.analyzers.sentiment import (
     MAX_WEIGHT,
@@ -305,3 +307,48 @@ def test_finnhub_http_error_returns_empty(monkeypatch):
     monkeypatch.setenv("FINNHUB_API_KEY", "test")
     monkeypatch.setattr(finnhub_news.net, "get", lambda *a, **kw: FakeResp())
     assert finnhub_news.fetch_company_news("AAPL") == []
+
+
+def test_finnhub_wrong_response_shape_fails_loudly(monkeypatch, capsys):
+    class FakeResp:
+        status_code = 200
+
+        def json(self):
+            return {"error": "changed shape"}
+
+    monkeypatch.setattr(finnhub_news, "has_key", lambda: True)
+    monkeypatch.setenv("FINNHUB_API_KEY", "test")
+    monkeypatch.setattr(finnhub_news.net, "get", lambda *a, **kw: FakeResp())
+    assert finnhub_news.fetch_company_news("AAPL", store=False) == []
+    assert "CONTRACT BROKEN" in capsys.readouterr().err
+
+
+def test_finnhub_history_export_preserves_existing_archive(monkeypatch, tmp_path):
+    import json
+    import sys
+
+    from alpha_engine.cache.models import NewsItem
+
+    item = NewsItem(
+        ts=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        headline="Apple profit rises",
+        source="finnhub",
+        asset_tags=["AAPL"],
+    )
+    monkeypatch.setattr(finnhub_news, "has_key", lambda: True)
+    monkeypatch.setattr(finnhub_news, "fetch_company_news", lambda *a, **kw: [item])
+    output = tmp_path / "history.json"
+    monkeypatch.setattr(sys, "argv", ["finnhub_news", "AAPL", "--output", str(output)])
+
+    assert finnhub_news.main() == 0
+    before = output.read_text()
+    saved = json.loads(before)
+    assert saved["asset"] == "AAPL"
+    assert saved["provider"] == "finnhub"
+    assert saved["items"][0]["headline"] == "Apple profit rises"
+    assert (
+        date.fromisoformat(saved["requested_to"]) - date.fromisoformat(saved["requested_from"])
+    ).days == 365
+    with pytest.raises(SystemExit):
+        finnhub_news.main()
+    assert output.read_text() == before

@@ -2003,7 +2003,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sbt.add_argument("--capital", type=float, default=100_000.0, help="starting capital")
     sbt.add_argument(
-        "--cost-bps", type=float, default=2.0, help="round-trip transaction cost in basis points"
+        "--cost-bps", type=float, default=2.0, help="transaction cost per side in basis points"
     )
     sbt.add_argument(
         "--trades", type=int, default=0, metavar="N", help="also print the last N trades"

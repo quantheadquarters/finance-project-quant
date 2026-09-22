@@ -76,6 +76,107 @@ Technical plus filing-date-gated SEC fundamentals resolved 16 and hit 7
 call, so the percentages are not a matched-trade improvement claim. Both
 average captured moves are negative: **no alpha was detected**.
 
+For a fairer side-by-side check, run the offline matched-date experiment:
+
+```bash
+.venv/bin/python -m alpha_engine.validation.compare_context AAPL
+```
+
+The Apple experiment now reserves every candle dated **September 22, 2026 or
+later** as a future holdout. The comparison excludes those bars even after the
+price cache grows, and reports how many were reserved. A holdout means data kept
+unseen while choosing or changing a model; do not tune against it or use the
+general backtest command on that period while developing this Apple model.
+
+For independent historical headlines, the existing Finnhub adapter can export
+an unpruned research file. Put your own `FINNHUB_API_KEY` in `.env` (never in a
+chat or commit), then run:
+
+```bash
+.venv/bin/python -m alpha_engine.ingestion.finnhub_news AAPL --days 365
+.venv/bin/python -m alpha_engine.validation.compare_context AAPL \
+  --news-file data/research/AAPL_finnhub_news.json
+```
+
+The ordinary news cache retains only 30 days, so the archive is separate and
+gitignored. The exporter refuses an empty API response and will not overwrite
+an existing archive. It records the requested date range, provider, and retrieval
+time; the comparison refuses an archive whose request misses the development
+period or the first signal's 21-day news lookback. Check its printed first/last headline dates too: a request for
+365 days does not prove the provider actually supplied a complete year. There is no
+Finnhub key in this environment, so **historical company-news coverage has not
+yet been obtained or tested**. A public alternative was tried twice on
+September 21, 2026 and returned HTTP 429 both times. Historical headlines are
+also a retrospective feed, not an archived copy of exactly what was known on
+each day; a true live holdout needs prospective collection.
+
+The comparison uses cached candles and filings, plus the optional news file,
+and prints the exact dates scored by each pair. It shows a news arm only when
+a headline had a nonzero vote on at least one sampled date, and calls the
+comparison available only when a shared directional call resolved. A tagged
+but unscorable headline cannot masquerade as a tested sentiment model.
+On the current 276-bar sample, each version had **15 matched resolved calls**,
+**7 hits (46.67%)**, and a **-0.2831% average captured move**. A two-sided
+10-basis-point-per-side cost estimate lowers that to **-0.4831% per call**.
+Fundamentals made one fewer independent directional call, but did not improve
+the shared calls; even the **11 shared calls on which fundamentals actively
+voted** had identical outcomes. Apple-tagged news remains at zero, so there is
+no news result.
+The +47.58% buy-and-hold return spans the full sample; it is context, not a
+directly comparable account return. These are correlated signal outcomes, not
+an executable trading strategy or proof of alpha.
+
+## Account-level signal experiment
+
+The matched-date check above asks whether individual calls were right. The
+trade replay asks what an account would have done under one fixed rule: bullish
+means 100% long, bearish means 100% short, neutral means cash. Each decision is
+made at one daily candle's close, fills at the **next open**, and holds until
+the following open. The last position is closed at the last candle's close.
+Position changes and final liquidation pay 10 basis points (0.10%) per side.
+It is an experiment in `validation/`, not a new live trading strategy.
+
+Run it offline from the existing cache:
+
+```bash
+.venv/bin/python -m alpha_engine.validation.trade_experiment AAPL MSFT GOOGL NVDA
+# Once a dated company-news archive exists:
+.venv/bin/python -m alpha_engine.validation.trade_experiment AAPL \
+  --news-file data/research/AAPL_finnhub_news.json
+```
+
+The replay cuts every stock off before the fixed Apple holdout date so the
+cross-stock development check cannot peek into Apple's reserved period. The
+80-bar warmup and next-open fill leave about 194–195 daily return intervals
+per stock. The buy-and-hold benchmark uses **that same interval**, with the same
+entry/exit fees; it is not the +47.58% full-sample figure above. The candidate
+does not generate a news arm unless news actually votes. On the cached
+development sample ending August 31, 2026:
+
+| Stock | Technical | Technical + fundamentals | Same-window buy-and-hold |
+|---|---:|---:|---:|
+| AAPL | +0.21% | +0.60% | +18.73% |
+| MSFT | -2.97% | -2.97% | +3.95% |
+| GOOGL | -4.69% | -4.69% | +17.68% |
+| NVDA | -47.99% | -47.99% | +18.19% |
+
+Apple fundamentals voted on 145 closes, but the extra context barely changed
+the account outcome. No fundamentals voted on the other three cached stocks;
+their identical columns are **missing evidence**, not proof that fundamentals
+never matter. There were zero Apple news votes. The report also shows a
+volatility-matched buy-and-hold comparison, but its weight is selected from the
+*full sample's realized volatility* (hindsight), so it is a diagnostic rather
+than a strategy one could have executed. It still comfortably beat the Apple
+candidate. The replay omits slippage, short-borrow costs, dividends, taxes and
+market impact. These results reject a present claim of demonstrated alpha; they
+do not justify tuning the rule on this same sample until it looks profitable.
+
+At 0 / 10 / 25 basis points per side, Apple's technical-plus-fundamental
+account returned **+6.82% / +0.60% / -8.08%**; same-window buy-and-hold returned
+**+18.97% / +18.73% / +18.37%**. The frequent position changes make the
+candidate unusually sensitive to costs. Even zero modeled costs do not close
+the gap, and omitted slippage and short-borrow costs would not improve it.
+
 At the latest cached price, technical evidence was conflicted and neutral.
 Fundamentals were bullish with a 0.2333 source weight, but the final decision
 remained neutral, exactly as the technical-first rule requires.
@@ -130,16 +231,19 @@ ideas. No OpenAlgo source code was copied.
 ## Measured AAPL result
 
 The cached daily sample contained 276 bars from 2025-07-28 through 2026-08-31.
-Apple buy-and-hold returned **+47.58%** over that same sample. With a 10 basis
-point transaction cost on each position change:
+Apple buy-and-hold returned **+47.58%** over that full sample (before fees).
+The strategy runs below charge 10 basis points per side on position changes.
+They were remeasured after fixing the strategy engine's next-open fill: its
+earlier close-to-close calculation mistakenly credited positions with an
+overnight gap before the trade could fill. These replace the old figures:
 
 | Candidate | Return | Sharpe | Maximum drawdown | Trades |
 |---|---:|---:|---:|---:|
-| SMA crossover | +7.26% | 0.400 | -15.56% | 10 |
-| RSI reversal | +5.76% | 0.339 | -19.81% | 3 |
-| Supertrend flip | -12.96% | -0.491 | -20.38% | 7 |
-| Donchian breakout | -22.53% | -0.860 | -38.17% | 7 |
-| Momentum + volume | -28.14% | -1.151 | -41.23% | 8 |
+| SMA crossover | +3.36% | 0.248 | -15.31% | 10 |
+| RSI reversal | +7.72% | 0.414 | -19.89% | 3 |
+| Supertrend flip | -9.92% | -0.350 | -18.03% | 7 |
+| Donchian breakout | -21.34% | -0.802 | -37.23% | 7 |
+| Momentum + volume | -30.16% | -1.264 | -42.78% | 8 |
 
 All five passed the automated lookahead check. Passing that check means the
 replay is not obviously cheating; it does not make a poor result good.
@@ -150,21 +254,21 @@ Transaction-cost sensitivity, shown at 0 / 2 / 10 / 25 basis points:
 
 | Candidate | Returns across costs |
 |---|---|
-| SMA crossover | +9.32% / +8.91% / +7.26% / +4.23% |
-| RSI reversal | +6.29% / +6.18% / +5.76% / +4.96% |
-| Supertrend flip | -11.78% / -12.02% / -12.96% / -14.72% |
-| Donchian breakout | -21.49% / -21.70% / -22.53% / -24.07% |
-| Momentum + volume | -27.03% / -27.25% / -28.14% / -29.77% |
+| SMA crossover | +5.35% / +4.95% / +3.36% / +0.45% |
+| RSI reversal | +8.26% / +8.16% / +7.72% / +6.92% |
+| Supertrend flip | -8.74% / -8.98% / -9.92% / -11.66% |
+| Donchian breakout | -20.31% / -20.51% / -21.34% / -22.86% |
+| Momentum + volume | -29.11% / -29.32% / -30.16% / -31.72% |
 
-Nearby parameters were unstable. For example, SMA 5/20 returned -17.77%, 9/21
-returned +7.26%, and 20/50 returned -10.47%. Donchian lookbacks 10, 20, and 40
-returned -9.24%, -22.53%, and +3.03%; the positive case had only three trades.
+Nearby parameters were unstable. For example, SMA 5/20 returned -15.84%, 9/21
+returned +3.36%, and 20/50 returned -12.72%. Donchian lookbacks 10, 20, and 40
+returned -1.27%, -21.34%, and +4.22%; the positive case had only three trades.
 This is a warning for parameter-selection luck, not a reason to select the best
 row after seeing it.
 
 The first/second sample halves also changed behavior sharply. SMA moved from
--0.75% to +4.95%; RSI from +0.82% to -5.56%; Momentum + Volume from +6.83% to
--31.99%. These halves are diagnostics, not untouched holdouts, but the instability
+-4.02% to +4.96%; RSI from +2.15% to -5.41%; Momentum + Volume from +5.43% to
+-30.50%. These halves are diagnostics, not untouched holdouts, but the instability
 is exactly what a robust alpha should not show.
 
 ## Cross-sectional factor experiment
@@ -198,10 +302,46 @@ entry markers, and the account equity curve:
 ```
 
 The report includes the required TradingView attribution and a research-only
-warning. Its embedded data and HTML structure are tested. Automated visual
-rendering was not available in the restricted browser used for this work, so a
-human should open the generated file and confirm its final appearance before it
-is published.
+warning. Its embedded data and HTML structure are tested. On September 22, 2026,
+the optional Chromium browser suite passed all 22 tests, and the generated Apple
+chart was rendered and visually checked without JavaScript errors. Entry arrows
+now mark the next-open fill bar, not the preceding signal candle.
+
+## Next steps and release gates (set September 22, 2026)
+
+These are research gates, not a promise that the model will become profitable.
+An *out-of-sample holdout* is future data left unseen while deciding how the
+model works. Opening it to pick better settings would make it in-sample again.
+
+1. **Complete the development-data audit.** Done for the local sample: 276
+   daily candles through August 31, 2026; 20 SEC fundamental periods; zero
+   Apple-tagged headlines. The matched experiment uses 10-bar steps, a 10-bar
+   swing outcome, and a 10-basis-point-per-side cost *proxy*. Keep those settings
+   fixed for this candidate. The proxy is not an account return.
+2. **Obtain independent company news.** Pending an owner-supplied Finnhub key in
+   `.env`, or an equivalently sourced archive. Export it with the command above,
+   verify the requested and returned date spans, then run the comparison with
+   `--news-file`. The report must show nonzero `news_active_dates` before making
+   any claim about sentiment. Never copy a key or licensed headline archive into
+   Git. Historical API output still has revision/vintage uncertainty.
+3. **Freeze and collect the future holdout.** The Apple comparison structurally
+   excludes every bar on or after September 22, 2026. The existing daily job
+   already records AAPL signals. Do not change this candidate's rules based on
+   holdout prices or use the general backtest to tune on them. Earliest planned
+   review: March 22, 2027, and only if at least 10 **non-overlapping resolved**
+   10-bar calls exist. If not, keep collecting; do not lower the gate afterward.
+4. **At that one review, compare fairly.** The fixed next-open, costed
+   trade-level replay is implemented for development data and performed poorly.
+   Use the recorded calls and price
+   outcomes, report abstentions and data gaps, and compare the same dates for
+   technical-only, technical-plus-fundamental, and news-confirmed versions.
+   If a version has no active news vote or too few calls, report "insufficient
+   evidence," not a zero or an invented hit rate. The risk-matched benchmark is
+   ex-post only; a prospective comparison must set its risk rule in advance.
+5. **Expand only after a positive, stable holdout.** Check nearby parameter
+   settings and several stocks/market regimes, without choosing the best row
+   after seeing those results. If the holdout fails, keep the result and label
+   the candidate rejected or unproven; do not rename it alpha.
 
 ## Conclusion and the missing evidence
 
@@ -210,14 +350,6 @@ and news research, two safe narrative modes, point-in-time context replay, five
 strategy candidates, stress tests, and an interactive chart artifact. It does
 **not** have demonstrated Apple alpha.
 
-The next useful experiment is not another indicator. It is more honest data:
-
-1. configure Finnhub or another independent company-news source and build
-   point-in-time headline history;
-2. reserve a genuinely untouched future period before choosing parameters;
-3. compare against buy-and-hold and a risk-matched benchmark after costs;
-4. require stable results across nearby parameters and multiple market regimes;
-5. collect substantially more than three to ten trades before drawing a conclusion.
-
-Until those conditions are met, every model here should be called a research
-candidate rather than alpha.
+The immediate missing inputs are independent company-news history and elapsed
+future time. Until the gates above are met, every model here is a research
+candidate rather than demonstrated alpha.

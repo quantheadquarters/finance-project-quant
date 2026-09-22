@@ -22,6 +22,7 @@ Two honesty guards are built in rather than documented and hoped for:
 
 from __future__ import annotations
 
+import math
 from datetime import datetime
 
 from pydantic import BaseModel, Field
@@ -95,7 +96,8 @@ class StrategyBacktest(BaseModel):
     )
     disclaimer: str = (
         "RESEARCH ONLY. A backtest is a measurement of the past under simplifying "
-        "assumptions, not a prediction. Not financial advice."
+        "assumptions, not a prediction. Equity assumes full-capital exposure; "
+        "individual trade P&L uses the fixed reporting quantity. Not financial advice."
     )
 
 
@@ -137,19 +139,20 @@ def _extract_trades(
     timestamps: list[datetime],
     qty: float,
     txn_cost_bps: float,
+    final_close: float,
 ) -> list[Trade]:
-    """Walk the position series and emit one Trade per round trip."""
+    """Use next-open execution prices; mark an unclosed trade at the final close."""
     trades: list[Trade] = []
     held = 0
     entry_i = 0
 
     def close(exit_i: int, still_open: bool) -> None:
         entry_price = prices[entry_i]
-        exit_price = prices[exit_i]
+        exit_price = final_close if still_open else prices[exit_i]
         if entry_price <= 0:
             return
         gross = (exit_price - entry_price) * held * qty
-        cost = txn_cost_bps / 10_000.0 * (entry_price + exit_price) * qty
+        cost = txn_cost_bps / 10_000.0 * (entry_price + (0 if still_open else exit_price)) * qty
         pnl = gross - cost
         trades.append(
             Trade(
@@ -222,11 +225,19 @@ def run_strategy_backtest(
     """
     if trade_on not in ("underlying", "option"):
         raise ValueError("trade_on must be 'underlying' or 'option'")
+    if not math.isfinite(capital) or capital <= 0:
+        raise ValueError("capital must be finite and positive")
+    if not math.isfinite(qty) or qty <= 0:
+        raise ValueError("qty must be finite and positive")
+    if not math.isfinite(txn_cost_bps) or txn_cost_bps < 0:
+        raise ValueError("txn_cost_bps must be finite and nonnegative")
 
     option_candles_raw = option.candles if option else []
     candles, option_candles = align_option_to_underlying(underlying.candles, option_candles_raw)
     if trade_on == "option" and not option_candles:
         raise ValueError("trade_on='option' needs an option price series with overlapping bars")
+    if trade_on == "option" and any(o.ts != c.ts for c, o in zip(candles, option_candles)):
+        raise ValueError("trade_on='option' needs an option quote on every traded bar")
     if len(candles) < 2:
         raise ValueError("need at least 2 overlapping bars to backtest")
 
@@ -241,33 +252,44 @@ def run_strategy_backtest(
     confirmed: list[bool] = []
     for t, sig in enumerate(signals):
         confirmed.append(
-            bool(sig) and (strategy.verify_on_option(option_candles, t, sig) if confirm else True)
+            bool(sig)
+            and (
+                option_candles[t].ts == candles[t].ts
+                and strategy.verify_on_option(option_candles[: t + 1], t, sig)
+                if confirm
+                else True
+            )
         )
 
-    # Hold the last confirmed intent until a new one replaces it.
-    position: list[int] = []
+    # A close-of-bar intent becomes a held position only at the next bar's open.
+    target_position: list[int] = []
     held = 0
     for sig, ok in zip(signals, confirmed):
         if sig != 0 and ok:
             held = sig
-        position.append(held)
+        target_position.append(held)
+    position = [0, *target_position[:-1]]
 
-    prices = [
-        (option_candles[i] if trade_on == "option" else candles[i]).close
-        for i in range(len(candles))
-    ]
+    leg = option_candles if trade_on == "option" else candles
+    prices = [c.open for c in leg]
     timestamps = [c.ts for c in candles]
 
     returns: list[float] = [0.0]
     equity: list[float] = [capital]
     ruined_at: int | None = None
     for i in range(1, len(prices)):
-        prev = prices[i - 1]
-        bar_ret = (prices[i] / prev - 1.0) if prev > 0 else 0.0
-        # position[i-1]: the fill happens on the bar AFTER the signal's close.
-        gross = position[i - 1] * bar_ret
+        prev_close = leg[i - 1].close
+        today_open = leg[i].open
+        today_close = leg[i].close
+        if not all(math.isfinite(v) and v > 0 for v in (prev_close, today_open, today_close)):
+            raise ValueError("backtest needs positive finite open and close prices")
+        # The old position owns the overnight gap. The new position starts at
+        # today's open, after its entry/exit fee, and owns only today's session.
+        overnight = 1 + position[i - 1] * (today_open / prev_close - 1)
         turnover = abs(position[i] - position[i - 1])
-        net = gross - turnover * (txn_cost_bps / 10_000.0)
+        after_fee = 1 - turnover * txn_cost_bps / 10_000.0
+        session = 1 + position[i] * (today_close / today_open - 1)
+        net = overnight * after_fee * session - 1
 
         # RUIN. An account cannot lose more than everything, and a compounding
         # model will happily let it: a short position (-1) through a bar that
@@ -287,7 +309,7 @@ def run_strategy_backtest(
             returns.append(0.0)
             equity.append(0.0)
             continue
-        if 1.0 + net <= 0.0:
+        if min(overnight, after_fee, session) <= 0.0:
             ruined_at = i
             returns.append(-1.0)
             equity.append(0.0)
@@ -298,9 +320,9 @@ def run_strategy_backtest(
 
     if ruined_at is not None:
         # Nothing is held after ruin, so no trade may be reported as still open.
-        position = position[:ruined_at] + [0] * (len(position) - ruined_at)
+        position = position[: ruined_at + 1] + [0] * (len(position) - ruined_at - 1)
 
-    trades = _extract_trades(position, prices, timestamps, qty, txn_cost_bps)
+    trades = _extract_trades(position, prices, timestamps, qty, txn_cost_bps, leg[-1].close)
     metrics, drawdown = compute_metrics(
         equity,
         returns[1:],

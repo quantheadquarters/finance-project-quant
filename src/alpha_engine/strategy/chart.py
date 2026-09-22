@@ -36,14 +36,14 @@ def write_backtest_chart(path: str | Path, series: PriceSeries, report: Strategy
     ]
     markers = [
         {
-            "time": int(ts.timestamp()),
-            "position": "belowBar" if signal > 0 else "aboveBar",
-            "color": "#22c55e" if signal > 0 else "#ef4444",
-            "shape": "arrowUp" if signal > 0 else "arrowDown",
-            "text": "LONG" if signal > 0 else "SHORT",
+            "time": int(report.timestamps[i].timestamp()),
+            "position": "belowBar" if report.position[i] > 0 else "aboveBar",
+            "color": "#22c55e" if report.position[i] > 0 else "#ef4444",
+            "shape": "arrowUp" if report.position[i] > 0 else "arrowDown",
+            "text": "LONG" if report.position[i] > 0 else "SHORT",
         }
-        for ts, signal, confirmed in zip(report.timestamps, report.signals, report.confirmed)
-        if signal and confirmed
+        for i in range(1, len(report.position))
+        if report.position[i] and report.position[i] != report.position[i - 1]
     ]
     equity = [
         {"time": int(ts.timestamp()), "value": value}
