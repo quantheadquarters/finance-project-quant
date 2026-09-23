@@ -6,6 +6,35 @@ non-negotiable design rules, how the pieces fit, and how to work on it safely.
 
 ---
 
+## Current research handoff — remind Shubh first (2026-09-23)
+
+At the start of the next work session, remind Shubh of this plan before proposing
+new alpha code:
+
+1. The four-stock momentum candidate is implemented but **rejected**: price-only
+   returned +200.89%, price plus SEC revenue confirmation returned +135.31%, and
+   the same-period equal-weight buy-and-hold benchmark returned +553.77%.
+2. The first priority is access to survivorship-clean, point-in-time US equity
+   history containing delisted stocks, corporate actions, and historical universe
+   membership. Prefer running the frozen rule inside QuantConnect Cloud; CRSP/WRDS
+   or licensed Sharadar data are alternatives. No such account or dataset was
+   available locally as of this handoff. QuantConnect's downloaded data may not be
+   converted into this repo under its local-data license.
+3. Once access exists, rerun the **unchanged** rule across a dynamic universe with
+   delisting returns, next-open execution, costs, a broad-market benchmark, and a
+   risk-matched benchmark. Do not tune it after seeing evaluation results.
+4. Only after that baseline should the project test a small preregistered set:
+   broader momentum, post-earnings drift, quality/profitability confirmation, and
+   properly timestamped historical news sentiment.
+5. Keep a sealed holdout and then a forward paper record. Never promote a candidate
+   into the live engine unless its net excess return survives both gates.
+
+The implementation, exact caveats, and promotion gates are in
+`docs/ALPHA_RESEARCH_PLAN.md`; measured failures belong in `FINDINGS.md`. Update
+or remove this handoff when the broad-universe rerun is complete.
+
+---
+
 ## 1. What this project is
 
 An open, deterministic **research engine** that turns market data into structured,

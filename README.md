@@ -91,6 +91,7 @@ Thirteen documents is a lot. Read down this list only as far as you need.
 | **Understand what this is** | [HOW_IT_WORKS.md](HOW_IT_WORKS.md) — plain English first, then technical |
 | **Understand the whole repo without a coding background** | [docs/BEGINNER_GUIDE.md](docs/BEGINNER_GUIDE.md) — terms, folders, commands, and safe workflows |
 | **See the Apple alpha investigation** | [docs/APPLE_RESEARCH.md](docs/APPLE_RESEARCH.md) — technical/fundamental/news design and measured results |
+| **See the next alpha experiment and research plan** | [docs/ALPHA_RESEARCH_PLAN.md](docs/ALPHA_RESEARCH_PLAN.md) — implemented momentum candidate, measured failure, and promotion gates |
 | **Install and run it** | [GETTING_STARTED.md](GETTING_STARTED.md) |
 | **Know whether it works** | **[FINDINGS.md](FINDINGS.md)** — measured results, including the null ones |
 | **Know what's broken** | [BUGS.md](BUGS.md) — open defects and fixed ones, with their evidence |

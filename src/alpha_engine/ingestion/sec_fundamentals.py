@@ -1,4 +1,4 @@
-"""Apple quarterly fundamentals from the SEC's public company-facts API.
+"""Verified US-equity quarterly fundamentals from the SEC company-facts API.
 
 Direct quarter-length income facts are used for Q1-Q3. Q4 comes from the
 first-filed annual amount minus the first-filed nine-month amount. SEC cash
@@ -19,14 +19,22 @@ from alpha_engine.cache.models import Fundamentals
 from alpha_engine.config import load_project_env
 
 SOURCE = "sec_companyfacts"
-_CIK = {"AAPL": "0000320193"}
+_CONTRACT_REVENUE = "RevenueFromContractWithCustomerExcludingAssessedTax"
+_COMPANIES = {
+    "AAPL": ("0000320193", "Apple Inc.", (_CONTRACT_REVENUE,)),
+    "MSFT": ("0000789019", "MICROSOFT CORPORATION", (_CONTRACT_REVENUE,)),
+    # Alphabet moved from the contract tag to Revenues; retaining both avoids
+    # quietly dropping its entire earlier backtest history.
+    "GOOGL": ("0001652044", "Alphabet Inc.", ("Revenues", _CONTRACT_REVENUE)),
+    "NVDA": ("0001045810", "NVIDIA CORP", ("Revenues",)),
+}
 _BASE = "https://data.sec.gov/api/xbrl/companyfacts"
 _FORMS = {"10-Q", "10-K"}
 
 
 def supports(asset: str) -> bool:
-    """Start with the one ticker whose SEC mapping and facts were verified."""
-    return asset.upper() in _CIK
+    """Only accept tickers whose CIK, name, and revenue tag were checked."""
+    return asset.upper() in _COMPANIES
 
 
 def has_user_agent() -> bool:
@@ -100,21 +108,25 @@ def _quarter_facts(data: dict[str, Any], tag: str) -> dict[str, dict]:
 
 def parse_companyfacts(data: dict[str, Any], asset: str = "AAPL") -> list[Fundamentals]:
     """Normalize SEC facts while retaining only what was filed by each period."""
-    if not isinstance(data, dict) or data.get("entityName") != "Apple Inc.":
-        print("[sec] CONTRACT BROKEN: unexpected Apple company-facts response", file=sys.stderr)
+    asset = asset.upper()
+    if asset not in _COMPANIES:
+        raise ValueError(f"unsupported SEC ticker: {asset}")
+    _, entity_name, revenue_tags = _COMPANIES[asset]
+    if not isinstance(data, dict) or data.get("entityName") != entity_name:
+        print(f"[sec] CONTRACT BROKEN: unexpected {asset} company-facts response", file=sys.stderr)
         return []
     facts = data.get("facts")
     gaap = facts.get("us-gaap") if isinstance(facts, dict) else None
-    if (
-        not isinstance(gaap, dict)
-        or "RevenueFromContractWithCustomerExcludingAssessedTax" not in gaap
-    ):
-        print("[sec] CONTRACT BROKEN: Apple revenue facts missing", file=sys.stderr)
+    if not isinstance(gaap, dict) or not any(tag in gaap for tag in revenue_tags):
+        print(f"[sec] CONTRACT BROKEN: {asset} revenue facts missing", file=sys.stderr)
         return []
 
-    revenue = _quarter_facts(data, "RevenueFromContractWithCustomerExcludingAssessedTax")
+    revenue: dict[str, dict] = {}
+    for tag in revenue_tags:
+        for key, row in _quarter_facts(data, tag).items():
+            revenue.setdefault(key, row)
     if not revenue:
-        print("[sec] CONTRACT BROKEN: no usable quarterly Apple revenue", file=sys.stderr)
+        print(f"[sec] CONTRACT BROKEN: no usable quarterly {asset} revenue", file=sys.stderr)
         return []
     income = _quarter_facts(data, "NetIncomeLoss")
     gross = _quarter_facts(data, "GrossProfit")
@@ -201,7 +213,7 @@ def fetch_fundamentals(asset: str, cache: Cache | None = None) -> list[Fundament
         return []
     try:
         response = net.get(
-            f"{_BASE}/CIK{_CIK[asset]}.json",
+            f"{_BASE}/CIK{_COMPANIES[asset][0]}.json",
             headers={"User-Agent": os.environ["SEC_USER_AGENT"]},
             timeout=30,
         )
@@ -211,7 +223,7 @@ def fetch_fundamentals(asset: str, cache: Cache | None = None) -> list[Fundament
     except Exception as exc:  # noqa: BLE001 - SEC is optional context
         print(f"[sec] {asset} fundamentals failed: {exc}", file=sys.stderr)
         return []
-    # refresh_context records fundamentals.sec_aapl once, with this item count.
+    # refresh_context records this asset's SEC feed with its item count.
     if periods and cache is not None:
         cache.put_fundamentals(asset, periods)
     return periods

@@ -9,6 +9,22 @@ work?", and it is meant to be uncomfortable when the answer is no.
 
 ---
 
+## 2026-09-22 — Four-stock momentum candidate fails its benchmark
+
+The fixed, monthly 12-to-2-month momentum rule was tested on AAPL, MSFT,
+GOOGL, and NVDA from 2022-09-23 through 2026-09-21. At 10 bps per side,
+the technical version returned +200.89%; adding a filing-dated revenue-decline
+veto returned +135.31%. Equal-weight buy-and-hold on the same four stocks and
+dates returned +553.77%. The fundamental check hurt rather than helped.
+This four-stock universe also suffers severe survivor selection, so even a win
+would not have established alpha. No post-2026-09-21 holdout bar was used.
+
+Reproduce with `.venv/bin/python -m alpha_engine.validation.momentum_candidate`.
+See [the full method, caveats, and next research gates](docs/ALPHA_RESEARCH_PLAN.md).
+Research only; not financial advice.
+
+---
+
 ## 2026-07-27 — The engine has no measurable directional edge
 
 **Verdict: +0.0% edge over 6,788 signals, 7 assets, 2.7–5 years of history.**

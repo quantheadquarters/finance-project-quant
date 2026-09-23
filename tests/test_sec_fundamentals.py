@@ -100,6 +100,36 @@ def test_sec_wrong_response_fails_loudly(capsys):
     assert "CONTRACT BROKEN" in capsys.readouterr().err
 
 
+@pytest.mark.parametrize(
+    ("asset", "entity", "tag"),
+    [
+        ("AAPL", "Apple Inc.", "RevenueFromContractWithCustomerExcludingAssessedTax"),
+        ("MSFT", "MICROSOFT CORPORATION", "RevenueFromContractWithCustomerExcludingAssessedTax"),
+        ("GOOGL", "Alphabet Inc.", "Revenues"),
+        ("NVDA", "NVIDIA CORP", "Revenues"),
+    ],
+)
+def test_sec_verified_company_mapping(asset, entity, tag, capsys):
+    data = _companyfacts()
+    data["entityName"] = entity
+    revenue = data["facts"]["us-gaap"].pop("RevenueFromContractWithCustomerExcludingAssessedTax")
+    data["facts"]["us-gaap"][tag] = revenue
+    assert len(sec_fundamentals.parse_companyfacts(data, asset)) == 3
+    data["entityName"] = "Wrong company"
+    assert sec_fundamentals.parse_companyfacts(data, asset) == []
+    assert "CONTRACT BROKEN" in capsys.readouterr().err
+
+
+def test_alphabet_revenue_tag_transition_keeps_older_quarters():
+    data = _companyfacts()
+    data["entityName"] = "Alphabet Inc."
+    gaap = data["facts"]["us-gaap"]
+    older = gaap["RevenueFromContractWithCustomerExcludingAssessedTax"]
+    gaap["Revenues"] = {"units": {"USD": [older["units"]["USD"][-1]]}}
+    rows = sec_fundamentals.parse_companyfacts(data, "GOOGL")
+    assert [r.period for r in rows] == ["2025-Q2", "2026-Q1", "2026-Q2"]
+
+
 def test_sec_fetch_uses_declared_agent_and_caches(monkeypatch, tmp_path):
     class Response:
         status_code = 200
