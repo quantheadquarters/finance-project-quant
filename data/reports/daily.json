@@ -1,6 +1,6 @@
 {
-  "started_at": "2026-10-15T00:16:15.665425+00:00",
-  "finished_at": "2026-10-15T00:16:18.096688+00:00",
+  "started_at": "2026-10-16T00:01:52.420106+00:00",
+  "finished_at": "2026-10-16T00:01:55.590087+00:00",
   "total": 7,
   "ok": 7,
   "errors": 0,
@@ -11,84 +11,83 @@
       "market": "crypto",
       "status": "ok",
       "error": null,
-      "duration_ms": 103.7,
+      "duration_ms": 158.4,
       "direction": "bearish",
-      "confidence": 0.2238
+      "confidence": 0.2494
     },
     {
       "asset": "ETH",
       "market": "crypto",
       "status": "ok",
       "error": null,
-      "duration_ms": 86.5,
+      "duration_ms": 224.0,
       "direction": "bearish",
-      "confidence": 0.1844
+      "confidence": 0.2037
     },
     {
       "asset": "SOL",
       "market": "crypto",
       "status": "ok",
       "error": null,
-      "duration_ms": 89.0,
+      "duration_ms": 255.5,
       "direction": "bearish",
-      "confidence": 0.1577
+      "confidence": 0.1777
     },
     {
       "asset": "AAPL",
       "market": "us_equity",
       "status": "ok",
       "error": null,
-      "duration_ms": 1674.9,
+      "duration_ms": 2318.0,
       "direction": "bullish",
-      "confidence": 0.1738
+      "confidence": 0.1152
     },
     {
       "asset": "MSFT",
       "market": "us_equity",
       "status": "ok",
       "error": null,
-      "duration_ms": 151.3,
+      "duration_ms": 77.0,
       "direction": "bullish",
-      "confidence": 0.2367
+      "confidence": 0.3083
     },
     {
       "asset": "GOOGL",
       "market": "us_equity",
       "status": "ok",
       "error": null,
-      "duration_ms": 170.6,
+      "duration_ms": 61.5,
       "direction": "bullish",
-      "confidence": 0.2128
+      "confidence": 0.2639
     },
     {
       "asset": "NVDA",
       "market": "us_equity",
       "status": "ok",
       "error": null,
-      "duration_ms": 154.3,
-      "direction": "bullish",
-      "confidence": 0.2464
+      "duration_ms": 74.3,
+      "direction": "neutral",
+      "confidence": 0.0
     }
   ],
   "portfolio": {
     "signal_count": 7,
-    "directional_count": 7,
-    "net_bias": 0.2116,
-    "direction": "bullish",
+    "directional_count": 6,
+    "net_bias": 0.0429,
+    "direction": "neutral",
     "conviction_weights": {
-      "BTC": 0.1559,
-      "ETH": 0.1284,
-      "SOL": 0.1098,
-      "AAPL": 0.1211,
-      "MSFT": 0.1649,
-      "GOOGL": 0.1482,
-      "NVDA": 0.1716
+      "BTC": 0.1892,
+      "ETH": 0.1545,
+      "SOL": 0.1348,
+      "AAPL": 0.0874,
+      "MSFT": 0.2339,
+      "GOOGL": 0.2002
     },
-    "diversification_score": 0.735,
+    "diversification_score": 0.5818,
     "concentration_flags": [
       "BTC and ETH point the same way with +0.93 return correlation \u2014 effectively one position",
       "BTC and SOL point the same way with +0.86 return correlation \u2014 effectively one position",
-      "ETH and SOL point the same way with +0.89 return correlation \u2014 effectively one position"
+      "ETH and SOL point the same way with +0.90 return correlation \u2014 effectively one position"
     ],
     "correlations": {
       "assets": [
@@ -97,72 +96,56 @@
         "ETH",
         "GOOGL",
         "MSFT",
-        "NVDA",
         "SOL"
       ],
       "window": 30,
       "matrix": [
         [
           1.0,
-          -0.1025,
-          -0.1373,
-          0.3314,
-          0.2943,
-          -0.1423,
-          -0.0192
+          0.0281,
+          -0.0439,
+          0.402,
+          0.3636,
+          -0.0131
         ],
         [
-          -0.1025,
+          0.0281,
           1.0,
-          0.9328,
-          -0.1627,
-          0.1583,
-          0.1112,
-          0.8603
+          0.9327,
+          -0.2442,
+          -0.4003,
+          0.8605
         ],
         [
-          -0.1373,
-          0.9328,
+          -0.0439,
+          0.9327,
           1.0,
-          -0.0678,
-          0.1458,
-          0.1476,
-          0.8947
+          -0.3184,
+          -0.4623,
+          0.895
         ],
         [
-          0.3314,
-          -0.1627,
-          -0.0678,
+          0.402,
+          -0.2442,
+          -0.3184,
           1.0,
-          0.5179,
-          0.1353,
-          -0.0146
+          0.5318,
+          -0.2964
         ],
         [
-          0.2943,
-          0.1583,
-          0.1458,
-          0.5179,
+          0.3636,
+          -0.4003,
+          -0.4623,
+          0.5318,
           1.0,
-          0.0819,
-          0.1796
+          -0.4808
         ],
         [
-          -0.1423,
-          0.1112,
-          0.1476,
-          0.1353,
-          0.0819,
-          1.0,
-          0.1274
-        ],
-        [
-          -0.0192,
-          0.8603,
-          0.8947,
-          -0.0146,
-          0.1796,
-          0.1274,
+          -0.0131,
+          0.8605,
+          0.895,
+          -0.2964,
+          -0.4808,
           1.0
         ]
       ]
