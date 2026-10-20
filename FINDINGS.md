@@ -9,6 +9,52 @@ work?", and it is meant to be uncomfortable when the answer is no.
 
 ---
 
+## 2026-10-20 — Historical SPY-universe momentum: large return, large risk
+
+The frozen price-only rule in `examples/quantconnect_spy_momentum.py` ran in
+QuantConnect Cloud on dated SPY constituents from 2015-01-02 through the
+2026-07-22 market close (private project 38181716, backtest
+`b8b50632a4c0e06fe596a8830021ccff`; its end-of-algorithm log is stamped
+2026-07-23 00:00). A separate SPY buy-and-hold baseline in
+`examples/quantconnect_spy_buy_hold.py` used the same starting cash, first
+purchase at the 2015-01-05 open, raw SPY subscription, and 10-basis-point
+per-side fee (private project 38183809, backtest
+`06b28d5b1147eb3e9693017b72699be2`). Both codes request an end date of
+2026-09-21, but the organization's **three-month out-of-sample holdout**
+truncated both runs to the 2026-07-22 close. That more recent period remains
+unseen in this experiment; the holdout setting was not changed.
+
+| QuantConnect statistic | Momentum | SPY buy and hold |
+|---|---:|---:|
+| Starting / ending equity | $100,000 / $1,568,427.62 | $100,000 / $395,742.45 |
+| Total return | +1,468.428% | +295.742% |
+| Compounded annual return | +26.882% | +12.636% |
+| Sharpe / Sortino | 0.635 / 0.719 | 0.528 / 0.536 |
+| Maximum drawdown | 43.600% | 31.300% |
+| Annual standard deviation | 38.9% | 13.5% |
+| PSR | 3.476% | 2.042% |
+| Orders / modeled fees | 379 filled / $27,356.47 | 1 filled / $97.85 |
+
+The momentum rule's last order was on 2026-07-02. Its programmed 2026-09-21
+liquidation never ran, leaving $1,559,412.27 in holdings at the enforced
+cutoff; the SPY baseline likewise remains invested. Ending equity includes
+market value, but neither run pays a final sale fee, spread, or market impact.
+Both codes charge 10 basis points per side and have no explicit slippage model.
+QuantConnect's free plan also capped the saved log at 10 KB; the order tables
+were checked separately and showed every order filled.
+
+This is **not a demonstrated alpha**. Momentum beat unlevered SPY on total
+return and had a slightly higher Sharpe, but its 38.9% annual volatility was
+almost 2.9 times SPY's 13.5%; the 43.6% drawdown and low PSR also matter. A
+risk-matched benchmark, doubled-cost run, sector/name contribution, and
+independent holdout result have not been measured. Do not treat the return gap
+alone as risk-adjusted excess return.
+The four-stock result above remains a separate, rejected experiment; do not
+combine their date ranges or treat this cloud run as a live engine signal.
+Research only; not financial advice.
+
+---
+
 ## 2026-09-22 — Four-stock momentum candidate fails its benchmark
 
 The fixed, monthly 12-to-2-month momentum rule was tested on AAPL, MSFT,

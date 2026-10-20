@@ -6,7 +6,7 @@ non-negotiable design rules, how the pieces fit, and how to work on it safely.
 
 ---
 
-## Current research handoff — remind Shubh first (2026-09-23)
+## Current research handoff — remind Shubh first (2026-10-20)
 
 At the start of the next work session, remind Shubh of this plan before proposing
 new alpha code:
@@ -14,15 +14,19 @@ new alpha code:
 1. The four-stock momentum candidate is implemented but **rejected**: price-only
    returned +200.89%, price plus SEC revenue confirmation returned +135.31%, and
    the same-period equal-weight buy-and-hold benchmark returned +553.77%.
-2. The first priority is access to survivorship-clean, point-in-time US equity
-   history containing delisted stocks, corporate actions, and historical universe
-   membership. Prefer running the frozen rule inside QuantConnect Cloud; CRSP/WRDS
-   or licensed Sharadar data are alternatives. No such account or dataset was
-   available locally as of this handoff. QuantConnect's downloaded data may not be
-   converted into this repo under its local-data license.
-3. Once access exists, rerun the **unchanged** rule across a dynamic universe with
-   delisting returns, next-open execution, costs, a broad-market benchmark, and a
-   risk-matched benchmark. Do not tune it after seeing evaluation results.
+2. QuantConnect Cloud access now exists. The frozen price-only rule ran on dated
+   historical SPY membership through 2026-07-23; the account's three-month
+   out-of-sample holdout cut off the requested 2026-09-21 end date. The run
+   returned +1,468.428% but had 43.600% drawdown and a 0.635 Sharpe. See
+   `FINDINGS.md`. QuantConnect's downloaded data may not be converted into this
+   repo under its local-data license.
+3. Keep the **unchanged** rule and the three-month holdout. A separate,
+   same-window SPY buy-and-hold run returned +295.742% with 13.5% annual
+   volatility; momentum's 38.9% volatility makes the return gap an unfair
+   risk comparison. Next measure a risk-matched benchmark, verify delisting
+   treatment and costs, and inspect concentration. The final liquidation date
+   did not execute because the holdout stopped the run early. Do not tune the
+   rule after seeing its result.
 4. Only after that baseline should the project test a small preregistered set:
    broader momentum, post-earnings drift, quality/profitability confirmation, and
    properly timestamped historical news sentiment.

@@ -1,6 +1,7 @@
 # An honest path to a demonstrated alpha
 
-**Status (2026-09-22): candidate implemented and rejected, not a trading signal.**
+**Status (2026-10-20): four-stock candidate rejected; broad-universe cloud run
+measured but not promoted.**
 This document is research only, not financial advice. No result here establishes a
 repeatable edge or authorizes live trading.
 
@@ -40,6 +41,15 @@ does not permit redistributing or converting downloaded datasets, so do not
 check those files into this repository. A separately licensed dataset that
 permits the intended use is another path. The test period stays sealed until
 the rule and evaluation protocol are frozen.
+
+That route is now in use: the unchanged price-only rule in
+`examples/quantconnect_spy_momentum.py` ran on historical SPY membership.
+QuantConnect's three-month organization holdout ended the run on 2026-07-23,
+before the requested 2026-09-21 end date. The holdout remains enabled. The
+measured return and risk are in [FINDINGS.md](../FINDINGS.md); a large return
+alone does not pass the promotion gate. A separate SPY buy-and-hold run now
+provides the same-window broad-market baseline; the risk-matched comparison
+is the next required measurement.
 
 ## What “alpha” means here
 
