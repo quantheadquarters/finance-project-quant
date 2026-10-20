@@ -45,8 +45,11 @@ a public no-code builder would need a safe, limited rule language and a sandbox.
    and select DEMO for synthetic, network-free practice.
 4. Select one of the five built-in teaching rules: SMA crossover, RSI reversal,
    Donchian breakout, momentum plus volume, or Supertrend flip. Change parameters
-   and replay it against buy-and-hold on matched bars and costs. The risk-matched
-   cash blend is hindsight-only. Download the run's inputs and result as JSON.
+   and replay it against buy-and-hold on matched bars and costs. The fixed 10%
+   volatility baseline uses only preceding closes and includes rebalancing
+   fees; the separately shown cash blend is hindsight-only. Download the run's
+   inputs and result as JSON. Save a rule preset to reuse your chosen strategy
+   and parameter values; loading one cannot upload Python code.
    A non-empty lookahead warning voids every metric.
 5. For a custom rule, put a `BaseStrategy` subclass in `strategies/`, then run
    `./start.sh strategy-backtest AAPL --strategy YourClass --chart aapl.html`.
@@ -77,21 +80,24 @@ a sealed holdout. A dated historical news archive is needed before claiming
 that headline sentiment improves results. Until then, the workbench is a way
 to inspect evidence and test ideas, not a predictor with demonstrated edge.
 
-## Known gaps to address in order
+## Remaining gates
 
-1. **Provenance:** `PriceSeries` has fetch time but no provider, quote currency
-   or adjustment policy. The workbench therefore labels candles as cached daily
-   prices, and cannot claim a verified total-return history.
-2. **Fair comparisons:** the interactive strategy result lacks a matched
-   buy-and-hold and risk-matched benchmark. Treat its return as descriptive,
-   never as alpha.
-3. **Historical news:** the normal cache keeps 30 days of headlines. It cannot
+1. **Historical price validity:** `PriceSeries` records provider, currency,
+   fetch time and adjustment policy, but the Yahoo adjustment policy is still
+   unverified. The single-stock cache lacks historical membership and delisted
+   company returns. Obtain a licensed point-in-time broad-universe dataset
+   before testing the frozen momentum rule again.
+2. **Sealed evaluation:** same-date buy-and-hold and the fixed trailing-risk
+   baseline now exist for the interactive rule, but neither substitutes for a
+   broad investable market benchmark, sealed holdout or forward paper record.
+3. **Historical news:** the normal cache keeps recent headlines. It cannot
    backfill a point-in-time multi-year sentiment test.
 4. **Real options:** model-priced illustrations need historical option quotes
    before executable conclusions are possible.
-5. **Public strategy creation:** loading arbitrary Python from a web request
-   would execute untrusted code. Local strategy files are the supported
-   extension point until a separately isolated sandbox exists.
+5. **Public strategy creation:** presets can adjust installed rules. Loading
+   arbitrary Python from a web request would execute untrusted code. A hosted
+   multiuser rule builder needs separate user storage and an isolated sandbox;
+   local strategy files remain the custom-code extension point here.
 
 Access setup: copy `.env.example` to `.env` and fill only the variables you
 have. `FRED_API_KEY` is the existing macro key. `SEC_USER_AGENT` is a name and

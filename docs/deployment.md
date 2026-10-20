@@ -1,84 +1,67 @@
-# Deployment Guide
+# Running Alpha Engine
 
-Three ways to run the engine, from lightest to most automated. Every path
-works keyless; `.env` keys only add layers (macro context, F&O chains, forex,
-LLM phrasing).
+The supported public install is a **single operator** running the research app locally.
+The project does not isolate one visitor's strategies, files, or data from another's.
+Keep the dashboard on loopback unless you operate an authenticated private network.
 
-## 1. Local (the default)
-
-```bash
-./start.sh scan BTC          # one-command setup + first scan
-# or manually:
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
-python -m alpha_engine.cli.main scan BTC
-python -m alpha_engine.cli.main dashboard      # http://127.0.0.1:8000
-```
-
-Copy `.env.example` to `.env` for optional keys. The engine loads it
-automatically; never commit it.
-
-## 2. Docker
+## Local setup
 
 ```bash
-docker build -t alpha-engine .
-docker run --rm alpha-engine scan BTC
-docker run --rm -p 8000:8000 alpha-engine dashboard --host 0.0.0.0
+./start.sh doctor
+./start.sh scan AAPL --days 365 --no-record
+./start.sh ingest AAPL
+./start.sh dashboard
 ```
 
-Or with compose, which mounts `./data` so cache and the signal log survive
-container restarts, and passes `.env` keys through:
+Open <http://127.0.0.1:8000/research>. The first two research commands fill the
+price and context caches. `--no-record` keeps setup checks out of the signal
+track record. Optional Finnhub, FRED and SEC details go in an untracked `.env`
+file (see `.env.example`); the default path works without keys. Never publish
+`.env` or the signal log as a secret store.
+
+## Docker
+
+Start Docker Desktop first, then check `docker info`. Compose binds the web port
+to `127.0.0.1` on your machine and mounts `data/` so caches persist:
 
 ```bash
-docker compose run --rm engine scan-all
-docker compose up dashboard
+docker compose config --quiet
+docker compose run --rm engine scan AAPL --days 365 --no-record
+docker compose run --rm engine ingest AAPL
+docker compose --profile dashboard up --build dashboard
 ```
 
-Note `--host 0.0.0.0` inside containers — the default `127.0.0.1` binding is
-unreachable from outside the container. The dashboard has **no auth**; expose
-it beyond localhost only behind something that adds it (reverse proxy, VPN,
-tailnet).
+If another app uses host port 8000, change only the left side of the
+`127.0.0.1:8000:8000` mapping in `docker-compose.yml`, then open that new port.
 
-## 3. Scheduled batch scans (cron)
+The server binds `0.0.0.0` **inside the container** so Docker can reach it;
+the host mapping remains loopback only. The compose service uses
+`--allow-public` for that container binding and leaves write operations off.
+Keep that host mapping on loopback. `ALPHA_API_KEY` protects API calls, but the
+browser pages have no login flow, so switching on the key alone breaks their
+API requests. A publicly hosted, multiuser app needs a separate authenticated
+frontend and isolation for each person's data and strategies.
 
-The `batch` command is built for cron: it scans the portfolio, appends to the
-signal log, writes a JSON report, and exits nonzero if any asset errored.
+## Daily scans and checks
 
-```cron
-# m  h    dom mon dow  command
-  15 22   *   *   1-5  cd /path/to/repo && .venv/bin/python -m alpha_engine.cli.main \
-      batch --config portfolio.json --output data/reports/$(date +\%Y\%m\%d).json \
-      >> data/logs/batch.log 2>&1
+The repository's scheduled job is `.github/workflows/daily-signals.yml`. It
+runs ingestion, batch scans, source checks and signal-log integrity checks. Do
+not add a second scheduler to write the same append-only log. For a private
+installation, `scripts/daily.sh` provides locking, timeout, rotation and a
+health gate; schedule that script if you are not using the GitHub workflow.
+
+Before sharing a build, run:
+
+```bash
+.venv/bin/pytest -q
+.venv/bin/ruff check .
+.venv/bin/ruff format --check .
+./start.sh health --strict
 ```
 
-Guidelines:
+`health --strict` reports missing or degraded optional sources as a failure.
+That is useful evidence of what the app can show today, not a claim of alpha.
+The CI workflow also checks that the built Python wheel includes the frontend.
 
-- **Pick a time after your markets close** (22:15 UTC covers US close;
-  Indian F&O reads age fast, so scan those during IST market hours).
-- **Respect rate limits**: one batch per day per market is plenty; the cache
-  makes intra-day re-runs cheap but the fetches are the scarce resource.
-- **Keep the venv path absolute** in cron — no shell profile is loaded.
-
-With Docker instead: `docker compose run --rm engine batch --config
-portfolio.json --output data/reports/report.json`.
-
-## Monitoring and alerting (honest minimum)
-
-There is no built-in alerting; these three checks cover the failure modes:
-
-1. **Batch exit code** — `batch` returns nonzero when any asset failed; let
-   cron mail you or wrap it: `... || curl -fsS https://hc-ping.com/<uuid>/fail`
-   (a dead-man switch like healthchecks.io also catches cron *not running*).
-2. **Signal log freshness** — the newest file under `data/signals/` should be
-   younger than your batch interval:
-   `find data/signals -name '*.jsonl' -mtime -1 | grep -q . || echo STALE`.
-3. **Calibration drift** — `record-stats` weekly; if the high-confidence
-   bucket's hit rate sags below its stated confidence, the engine is
-   overclaiming and the reliability factors need re-fitting against the new
-   outcomes.
-
-## CI
-
-`.github/workflows/ci.yml` runs ruff (lint + format check) and the full test
-suite on Python 3.11/3.12/3.13 with pip caching, on every push and PR. A red
-`ruff format --check` means run `ruff format .` locally and re-push.
+Research and education only. Not financial advice. Example signals have no
+proven edge, and backtests cannot predict future returns.

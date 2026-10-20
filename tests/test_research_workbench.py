@@ -132,6 +132,8 @@ def test_strategy_result_has_matched_benchmark_and_data_fingerprint(tmp_path, mo
     )
     assert len(first["benchmarks"]["buy_and_hold"]["equity_curve"]) == first["bars"]
     assert first["benchmarks"]["buy_and_hold"]["equity_curve"][0] == 100_000
+    assert len(first["benchmarks"]["trailing_volatility"]["equity_curve"]) == first["bars"]
+    assert first["benchmarks"]["trailing_volatility"]["annual_target_volatility_pct"] == 10
     assert "Hindsight" in first["benchmarks"]["risk_matched"]["note"]
 
     candles[-1].close += 1
@@ -153,6 +155,7 @@ def test_strategy_result_has_matched_benchmark_and_data_fingerprint(tmp_path, mo
 
     compact = call_tool("strategy_backtest", {**args, "include_series": False})
     assert "equity_curve" not in compact["benchmarks"]["buy_and_hold"]
+    assert "equity_curve" not in compact["benchmarks"]["trailing_volatility"]
     assert "price_snapshot" not in compact["experiment"]
 
 

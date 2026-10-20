@@ -32,6 +32,7 @@
       <div class="card-head"><div class="label" id="setup-title">Your research inputs</div></div>
       <p class="research-note">This page reads the server's cache. Missing inputs stay visible; API keys are never sent to this page.</p>
       <div id="source-status" class="research-list" aria-live="polite"></div>
+      <div id="evaluation-readiness" class="research-list" aria-live="polite"></div>
       <p class="research-note">First run: <code>./start.sh scan AAPL --days 365 --no-record</code>, then <code>./start.sh ingest AAPL</code>. For a network-free example, run <code>.venv/bin/python scripts/load_demo.py</code> and choose DEMO. Reload after the commands finish.</p>
     </section>
 
@@ -46,9 +47,10 @@
         <p class="research-note">Start with SMA crossover: it enters when a short moving average crosses a longer one. Change a length, then see whether it beats buying and holding over the same bars. A signal at one close fills on the next bar. Any reported lookahead violation voids the results.</p>
         <button id="try-example" type="button">Try the first example</button>
         <form id="strategy-form" class="research-controls"><label for="strategy-select">Example rule</label><select id="strategy-select"></select><div id="strategy-params" class="research-params"></div><button type="submit">Run backtest</button></form>
+        <div class="research-controls"><button id="download-preset" type="button">Download rule preset</button><label for="import-preset">Load rule preset</label><input id="import-preset" type="file" accept="application/json,.json" /><span id="preset-status" role="status"></span></div>
         <div id="strategy-result" class="research-list" role="status"></div>
         <button id="download-experiment" type="button" hidden>Download reproducible result (JSON)</button>
-        <p class="research-note">To create your own rule, copy a built-in strategy into <code>strategies/</code>, edit <code>generate_signals</code>, then run <code>./start.sh strategy-backtest AAPL --strategy YourClass --chart aapl.html</code>. The generated report uses TradingView Lightweight Charts for visual verification. Strategy files are loaded locally; the web API never accepts Python code.</p>
+        <p class="research-note">A preset saves your selected rule and settings so you can compare versions or share a starting point. To create a new kind of rule, copy a built-in strategy into <code>strategies/</code>, edit <code>generate_signals</code>, then run <code>./start.sh strategy-backtest AAPL --strategy YourClass --chart aapl.html</code>. The generated report uses TradingView Lightweight Charts for visual verification. Strategy files are loaded locally; the web API never accepts Python code.</p>
       </section>
       <section id="options-section" class="card span-12"><div class="card-head"><div class="label">Stock options research <span class="label-hint">model-priced illustration</span></div></div><p class="research-note">Compare the same engine signal on shares and a simulated at-the-money option. Option prices come from a model, not historical option quotes or executable fills.</p><button id="options-button" type="button">Run options illustration</button><div id="options-result" class="research-list" role="status"></div></section>
     </div>

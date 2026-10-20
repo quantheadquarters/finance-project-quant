@@ -4,6 +4,43 @@
 This document is research only, not financial advice. No result here establishes a
 repeatable edge or authorizes live trading.
 
+## What the Apple workbench can test now
+
+`/research` compares an installed rule with same-date stock buy-and-hold, a
+**hindsight** cash blend, and a fixed 10% annual-volatility-target baseline.
+The fixed baseline estimates risk from the preceding 20 closes, chooses the
+stock/cash allocation for the next open, caps stock at 100%, and charges the
+configured turnover fee. It is independent of the tested rule's realized
+volatility, unlike the hindsight blend. The downloaded experiment records the
+price snapshot and strategy source hashes. A rule preset saves only a named
+installed strategy and its parameters; the browser never uploads Python code.
+
+These single-stock comparisons are learning tools, not the broad-market test
+specified below. The cached Yahoo adjustment policy is unverified, current
+headlines are not a historical archive, the options illustration uses model
+prices, and the preset can be repeatedly tuned on the same visible history.
+No sealed holdout or forward paper evidence exists for these presets.
+
+## Data access needed for the next gate
+
+The existing FRED key supplies macro series and the Finnhub key supplies recent
+company headlines. Neither supplies the missing broad, survivorship-clean US
+equity dataset or historical executable option quotes. Before implementation,
+choose a provider and check that its license permits the intended open-source
+workflow. The required fields are historical daily prices, splits/dividends,
+dated membership, symbol changes, delisted companies and delisting returns.
+
+One private evaluation route is [QuantConnect Cloud](https://www.quantconnect.com/docs/v2/cloud-platform/getting-started),
+whose [US Equity Security Master](https://www.quantconnect.com/docs/v2/writing-algorithms/datasets/quantconnect/us-equity-security-master)
+documents splits, dividends, delistings and symbol changes, and whose
+[ETF constituent history](https://www.quantconnect.com/docs/v2/writing-algorithms/datasets/quantconnect/us-etf-constituents)
+can provide dated membership. Confirm the account's data and usage rights
+before adapting the frozen experiment there. Its [local download license](https://www.quantconnect.com/docs/v2/local-platform/datasets/downloading-data)
+does not permit redistributing or converting downloaded datasets, so do not
+check those files into this repository. A separately licensed dataset that
+permits the intended use is another path. The test period stays sealed until
+the rule and evaluation protocol are frozen.
+
 ## What “alpha” means here
 
 Alpha is return above an appropriate, investable benchmark **after costs and

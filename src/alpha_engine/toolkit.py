@@ -483,7 +483,7 @@ def tool_strategy_backtest(args: dict[str, Any]) -> dict[str, Any]:
             payload.pop(key, None)
         payload["series_note"] = "Pass include_series=true for the per-bar arrays."
         if "benchmarks" in payload:
-            for benchmark in ("buy_and_hold", "risk_matched"):
+            for benchmark in ("buy_and_hold", "risk_matched", "trailing_volatility"):
                 payload["benchmarks"][benchmark].pop("equity_curve")
     return payload
 

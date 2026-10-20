@@ -210,9 +210,30 @@ def test_research_guided_demo_downloads_reproducible_result(browser, server, tmp
         page.get_by_text("DEMO evidence loaded", exact=False).wait_for()
         assert page.locator("#options-section").is_hidden()
         assert "invented candles" in page.locator("#source-status").inner_text()
+        assert (
+            "Historical alpha evaluation: blocked"
+            in page.locator("#evaluation-readiness").inner_text()
+        )
         page.get_by_role("button", name="Try the first example").click()
         page.get_by_role("button", name="Download reproducible result (JSON)").wait_for()
         assert "buy and hold" in page.locator("#strategy-result").inner_text().lower()
+        assert (
+            "Pre-set 10% volatility target baseline"
+            in page.locator("#strategy-result").inner_text()
+        )
+        page.locator('#strategy-params input[name="fast_length"]').fill("7")
+        with page.expect_download() as preset_event:
+            page.get_by_role("button", name="Download rule preset").click()
+        preset_path = tmp_path / "rule-preset.json"
+        preset_event.value.save_as(preset_path)
+        preset = json.loads(preset_path.read_text())
+        assert preset["strategy"] == "SMACrossover"
+        assert preset["params"]["fast_length"] == 7
+        page.locator('#strategy-params input[name="fast_length"]').fill("10")
+        page.locator("#import-preset").set_input_files(preset_path)
+        page.get_by_text("Preset loaded. Run backtest to compare it.").wait_for()
+        assert page.locator('#strategy-params input[name="fast_length"]').input_value() == "7"
+        assert "Preset loaded" in page.locator("#preset-status").inner_text()
         with page.expect_download() as event:
             page.get_by_role("button", name="Download reproducible result (JSON)").click()
         destination = tmp_path / "experiment.json"

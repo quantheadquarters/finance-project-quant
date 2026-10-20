@@ -80,6 +80,17 @@ function renderEvidence(data) {
     sourceLine("FRED macro", macro.length === 3 && macro.every((s) => s.observations && !s.stale) ? "ready" : "missing or stale", `${macro.filter((s) => s.observations).length}/3 series cached; set FRED_API_KEY and run ./start.sh scan ${activeAsset} --no-record`);
   }
   const price = data.price;
+  const readiness = byId("evaluation-readiness");
+  readiness.replaceChildren();
+  line(readiness, "Historical alpha evaluation: blocked", "research-warning");
+  if (demo) line(readiness, "Prices are synthetic. Load real dated data before evaluating a rule.");
+  else {
+    if (price.adjustment_policy === "unverified") line(readiness, "Price adjustment for splits and dividends is unverified.");
+    if (price.candles.length < 252) line(readiness, "Fewer than 252 daily bars are cached for this stock.");
+    line(readiness, "This single-stock cache has no dated broad-universe membership or delisted-company returns.");
+    line(readiness, "No sealed holdout or forward paper record is attached to this rule.");
+    line(readiness, "Current headlines and model-priced options cannot validate historical news or option fills.");
+  }
   candleChart(price.candles);
   byId("price-meta").textContent = `${price.candles.length} bars · last ${stamp(price.last_bar_at)} · fetched ${stamp(price.fetched_at)}`;
   byId("price-note").textContent = demo ? "SYNTHETIC DEMO — these invented candles are for learning the controls, not market research." : `${price.stale ? "STALE — refresh with a no-record scan. " : ""}${price.candles.length < 100 ? "Short history: run ./start.sh scan " + activeAsset + " --days 365 --no-record before judging backtests. " : ""}Provider: ${price.provider || "unrecorded"}; currency: ${price.currency || "unrecorded"}; adjustment policy: ${price.adjustment_policy}. Historical daily candles, not live quotes.`;
@@ -147,6 +158,7 @@ async function loadResearch(asset) {
   } catch (error) {
     byId("research-status").textContent = `${error.message}. Run ./start.sh scan ${activeAsset} --days 365 --no-record, then reload.`;
     byId("source-status").replaceChildren();
+    byId("evaluation-readiness").replaceChildren();
     line(byId("source-status"), `Daily prices missing. Run ./start.sh scan ${activeAsset} --days 365 --no-record, then reload.`, "research-warning");
   }
 }
@@ -167,6 +179,24 @@ function showParams() {
     label.append(input);
     root.append(label);
   }
+}
+
+function selectedParams() {
+  const params = {};
+  for (const input of byId("strategy-params").querySelectorAll("input")) {
+    if (input.type === "number" && (input.value === "" || !Number.isFinite(Number(input.value)))) throw new Error(`Enter a finite number for ${input.name}`);
+    params[input.name] = input.type === "number" ? Number(input.value) : input.value;
+  }
+  return params;
+}
+
+function downloadJson(value, filename) {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: "application/json" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 async function loadStrategies() {
@@ -216,6 +246,38 @@ byId("demo-select").addEventListener("click", () => {
   loadResearch("DEMO");
 });
 byId("strategy-select").addEventListener("change", showParams);
+byId("download-preset").addEventListener("click", () => {
+  try {
+    const strategy = byId("strategy-select").value;
+    if (!strategies.some((item) => item.key === strategy)) throw new Error("Choose an available rule first");
+    downloadJson({ version: 1, asset: activeAsset, strategy, params: selectedParams() }, `${activeAsset.toLowerCase()}-${strategy.toLowerCase()}-preset.json`);
+    byId("preset-status").textContent = "Preset downloaded.";
+  } catch (error) { byId("preset-status").textContent = error.message; }
+});
+byId("import-preset").addEventListener("change", async (event) => {
+  try {
+    const file = event.target.files?.[0];
+    if (!file || file.size > 16_384) throw new Error("Choose a preset JSON file under 16 KB");
+    const preset = JSON.parse(await file.text());
+    const choice = strategies.find((item) => item.key === preset.strategy);
+    if (preset.version !== 1 || !choice || !preset.params || typeof preset.params !== "object" || Array.isArray(preset.params)) throw new Error("Unsupported preset or rule unavailable on this server");
+    if (Object.keys(preset.params).some((key) => !(key in choice.params))) throw new Error("Preset contains an unknown setting");
+    byId("strategy-select").value = choice.key;
+    showParams();
+    for (const input of byId("strategy-params").querySelectorAll("input")) {
+      const value = preset.params[input.name];
+      if (value === undefined) continue;
+      if (typeof value !== typeof choice.params[input.name] || (typeof value === "number" && !Number.isFinite(value))) throw new Error(`Invalid value for ${input.name}`);
+      input.value = value;
+    }
+    if (typeof preset.asset === "string" && /^[A-Za-z0-9._&-]{1,24}$/.test(preset.asset)) {
+      byId("asset-input").value = preset.asset;
+      await loadResearch(preset.asset);
+    }
+    byId("preset-status").textContent = "Preset loaded. Run backtest to compare it.";
+  } catch (error) { byId("preset-status").textContent = error.message; }
+  event.target.value = "";
+});
 byId("try-example").addEventListener("click", () => {
   byId("strategy-select").value = "SMACrossover";
   showParams();
@@ -228,9 +290,8 @@ byId("strategy-form").addEventListener("submit", async (event) => {
   lastExperiment = null;
   byId("download-experiment").hidden = true;
   line(root, "Running historical replay…");
-  const params = {};
-  for (const input of byId("strategy-params").querySelectorAll("input")) params[input.name] = input.type === "number" ? Number(input.value) : input.value;
   try {
+    const params = selectedParams();
     const result = await tool("strategy_backtest", { asset: activeAsset, strategy: byId("strategy-select").value, params, days: 365, include_series: true });
     root.replaceChildren();
     if (result.warning) line(root, result.warning, "research-warning");
@@ -241,7 +302,9 @@ byId("strategy-form").addEventListener("submit", async (event) => {
     if (result.benchmarks) {
       const buy = result.benchmarks.buy_and_hold;
       const risk = result.benchmarks.risk_matched;
+      const trailing = result.benchmarks.trailing_volatility;
       line(root, `Same dates: buy and hold ${buy.total_return_pct.toFixed(2)}% · cash blended comparison ${risk.total_return_pct.toFixed(2)}% · strategy ${result.metrics.total_return_pct.toFixed(2)}%`, "research-item-title");
+      line(root, trailing.available ? `Pre-set 10% volatility target baseline ${trailing.total_return_pct.toFixed(2)}% · maximum drawdown ${trailing.max_drawdown_pct.toFixed(2)}%. ${trailing.note}` : trailing.note, trailing.available ? "" : "research-warning");
       line(root, `Buy and hold maximum drawdown ${buy.max_drawdown_pct.toFixed(2)}%. ${result.benchmarks.method}`);
       line(root, `${risk.note} Stock fraction ${Math.round(risk.stock_fraction * 100)}%; target volatility ${risk.target_annual_volatility_pct.toFixed(2)}%, achieved ${risk.achieved_annual_volatility_pct.toFixed(2)}%.`, "research-warning");
     }
@@ -250,10 +313,11 @@ byId("strategy-form").addEventListener("submit", async (event) => {
     for (const caveat of result.experiment.limitations) line(root, caveat, "research-warning");
     const curves = [{ name: "Rule", values: result.equity_curve, color: "#60a5fa" }];
     if (result.benchmarks) curves.unshift(
+      ...(result.benchmarks.trailing_volatility.available ? [{ name: "Trailing volatility", values: result.benchmarks.trailing_volatility.equity_curve, color: "#a78bfa" }] : []),
       { name: "Cash blended", values: result.benchmarks.risk_matched.equity_curve, color: "#eab308" },
       { name: "Buy and hold", values: result.benchmarks.buy_and_hold.equity_curve, color: "#22c55e" },
     );
-    line(root, "Blue: rule · Green: buy and hold · Yellow: hindsight cash blend");
+    line(root, `Blue: rule · Green: buy and hold${result.benchmarks?.trailing_volatility.available ? " · Purple: pre-set risk baseline" : ""} · Yellow: hindsight cash blend`);
     const chart = equityChart(curves);
     if (chart) root.append(chart);
     lastExperiment = result;
@@ -262,12 +326,7 @@ byId("strategy-form").addEventListener("submit", async (event) => {
 });
 byId("download-experiment").addEventListener("click", () => {
   if (!lastExperiment) return;
-  const url = URL.createObjectURL(new Blob([JSON.stringify(lastExperiment, null, 2)], { type: "application/json" }));
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `${lastExperiment.experiment.asset.toLowerCase()}-${lastExperiment.experiment.strategy.toLowerCase()}-experiment.json`;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  downloadJson(lastExperiment, `${lastExperiment.experiment.asset.toLowerCase()}-${lastExperiment.experiment.strategy.toLowerCase()}-experiment.json`);
 });
 byId("options-button").addEventListener("click", async () => {
   const root = byId("options-result");
