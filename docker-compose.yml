@@ -9,9 +9,11 @@ services:
   # The CLI engine — run any command
   engine:
     build: .
+    env_file:
+      - path: .env
+        required: false
     volumes:
       - ./data:/app/data        # persist cache and signal logs
-      - ./.env:/app/.env:ro     # optional: mount your .env for API keys
     environment:
       - FRED_API_KEY=${FRED_API_KEY:-}
       - LLM_API_KEY=${LLM_API_KEY:-}
@@ -53,10 +55,12 @@ services:
   # Batch scanner — run via cron or manually
   batch:
     build: .
+    env_file:
+      - path: .env
+        required: false
     command: ["batch", "--output", "/app/data/reports/batch.json"]
     volumes:
       - ./data:/app/data
-      - ./.env:/app/.env:ro
     environment:
       - FRED_API_KEY=${FRED_API_KEY:-}
     profiles:

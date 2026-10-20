@@ -100,7 +100,11 @@ def fetch_daily(asset: str, days: int = 365, cache: Cache | None = None) -> Pric
             timeout=20,
         )
         resp.raise_for_status()
-        candles = _parse_chart(resp.json())
+        payload = resp.json()
+        candles = _parse_chart(payload)
+        results = payload.get("chart", {}).get("result") or [{}]
+        meta = results[0].get("meta", {})
+        currency = meta.get("currency") if isinstance(meta, dict) else None
     except Exception as e:  # noqa: BLE001 - recorded, then re-raised for the caller
         health.record(f"price.{SOURCE}", error=f"{type(e).__name__}: {e}")
         raise
@@ -110,6 +114,12 @@ def fetch_daily(asset: str, days: int = 365, cache: Cache | None = None) -> Pric
     # important input in the engine was the least observable.
     health.record(f"price.{SOURCE}", items=len(candles))
 
-    series = PriceSeries(asset=asset, interval=Interval.DAY, candles=candles)
+    series = PriceSeries(
+        asset=asset,
+        interval=Interval.DAY,
+        candles=candles,
+        source=SOURCE,
+        currency=currency if isinstance(currency, str) else None,
+    )
     cache.put_price(series)
     return series

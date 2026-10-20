@@ -1,9 +1,10 @@
-"""The web server: two sections and one API.
+"""The web server: three sections and one API.
 
     python -m web.server                    # http://127.0.0.1:8000
 
-Two sections, deliberately separate because they answer different questions:
+Three sections, deliberately separate because they answer different questions:
 
+    /research    dated cached evidence and user-strategy replays; Apple first.
     /dashboard   what the engine has already decided — the recorded signal log,
                  hit rates, regime and risk. Read-only, no keys, no AI.
     /terminal    a chat where an AI drives the engine's tools for you. You bring
@@ -81,6 +82,7 @@ _PAGES = {
     "/": "index.html",
     "/index.html": "index.html",
     "/dashboard": "dashboard.html",
+    "/research": "research.html",
     "/terminal": "terminal.html",
 }
 
@@ -424,6 +426,7 @@ def main(argv: list[str] | None = None) -> int:
     base = f"http://{args.host}:{args.port}"
     print(f"Alpha Engine listening on {base}", flush=True)
     print(f"  dashboard  {base}/dashboard", flush=True)
+    print(f"  research   {base}/research", flush=True)
     print(f"  terminal   {base}/terminal", flush=True)
     print(f"  api        {base}/api/v1/tools", flush=True)
     if config.requires_auth():

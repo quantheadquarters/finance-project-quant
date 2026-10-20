@@ -433,6 +433,35 @@ footer {
   pre.thesis { -webkit-line-clamp: unset; line-clamp: unset; max-height: none; }
 }
 
+/* Research workbench keeps source gaps and replay warnings in the reading flow. */
+.home-link { color: var(--muted); font-size: 13px; text-decoration: none; padding: 7px; }
+.home-link:hover { color: var(--text); }
+.research-wrap .grid { margin-top: 20px; }
+.research-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 18px 0; }
+.research-controls label, .research-params label { color: var(--muted); font-size: 12px; }
+.research-controls input, .research-controls select, .research-controls button, #options-button, #try-example, #download-experiment {
+  color: var(--text); background: var(--surface); border: 1px solid var(--line-2);
+  border-radius: var(--radius-xs); padding: 9px 12px; font: inherit;
+}
+.research-controls button, #options-button, #try-example, #download-experiment { cursor: pointer; color: var(--accent); }
+.research-setup { margin-top: 18px; }
+.research-list details { padding: 10px 0; }
+.research-list summary { cursor: pointer; color: var(--accent); }
+#download-experiment { margin-top: 12px; }
+#download-experiment[hidden] { display: none; }
+#options-section[hidden] { display: none; }
+.research-params { display: flex; flex-wrap: wrap; gap: 10px; }
+.research-params label { display: grid; gap: 4px; }
+.research-params input { width: 95px; }
+.research-chart svg, .research-list svg { display: block; width: 100%; height: auto; max-height: 300px; }
+.research-chart { padding: 12px 0; color: var(--muted); }
+.research-note, .research-list { color: var(--muted); line-height: 1.55; font-size: 13px; }
+.research-list p { margin: 8px 0; overflow-wrap: anywhere; }
+.research-item { padding: 10px 0; border-bottom: 1px solid var(--line-2); }
+.research-item-title { color: var(--text); font-weight: 600; }
+.research-warning { color: var(--warn); font-weight: 650; }
+.research-wrap code { overflow-wrap: anywhere; }
+
 /* ============================================================================
    LANDING (/) — the two doors
    Reuses every token above; adds no new colours. The two cards are deliberately

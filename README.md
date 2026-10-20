@@ -1,7 +1,9 @@
 # Alpha Engine
 
-An open, deterministic research engine for market signals across crypto, US
-equities, Indian equities, Indian F&O, and forex.
+An open, deterministic research starter kit for inspecting market evidence,
+testing your own rules, and finding out when an attractive result fails a fair
+comparison. It supports crypto, US equities, Indian equities, Indian F&O, and
+forex.
 
 It reads price history and market data, runs 20+ independent analyzers over it,
 and produces a signal with a direction, a calibrated confidence, a full audit
@@ -13,6 +15,12 @@ would be wrong.
 *A real recording: every command above is executed and its actual output
 captured. Re-record with `vhs demo/demo.tape`. The numbers are whatever the
 engine returns on the day it runs — including the ones saying it found nothing.*
+
+![Research workbench using invented DEMO candles](demo/research-workbench.png)
+
+*The research workbench screenshot uses synthetic DEMO prices; its returns are
+not stock-market results. Re-record it with `python demo/record_research.py`
+after installing the optional browser dependencies.*
 
 There is a web app too — `./start.sh` sets everything up and opens it:
 
@@ -90,6 +98,8 @@ Thirteen documents is a lot. Read down this list only as far as you need.
 |---|---|
 | **Understand what this is** | [HOW_IT_WORKS.md](HOW_IT_WORKS.md) — plain English first, then technical |
 | **Understand the whole repo without a coding background** | [docs/BEGINNER_GUIDE.md](docs/BEGINNER_GUIDE.md) — terms, folders, commands, and safe workflows |
+| **Research Apple and test your own rules** | [docs/RESEARCH_WORKBENCH.md](docs/RESEARCH_WORKBENCH.md) — the evidence workbench, five example rules, options limits, and setup |
+| **Build your first model** | [docs/BUILD_YOUR_MODEL.md](docs/BUILD_YOUR_MODEL.md) — a guided experiment, offline demo, and three extension paths |
 | **See the Apple alpha investigation** | [docs/APPLE_RESEARCH.md](docs/APPLE_RESEARCH.md) — technical/fundamental/news design and measured results |
 | **See the next alpha experiment and research plan** | [docs/ALPHA_RESEARCH_PLAN.md](docs/ALPHA_RESEARCH_PLAN.md) — implemented momentum candidate, measured failure, and promotion gates |
 | **Install and run it** | [GETTING_STARTED.md](GETTING_STARTED.md) |
@@ -133,7 +143,7 @@ environment, so you never have to activate anything by hand.
 You do not need to know Python. Copy these three lines into a terminal:
 
 ```bash
-git clone https://github.com/infoshubhjain/finance-project-quant.git
+git clone https://github.com/quantheadquarters/finance-project-quant.git
 cd finance-project-quant
 ./start.sh
 ```
@@ -444,7 +454,7 @@ or any MCP client can call it directly:
 }
 ```
 
-Nine read-only tools: `scan`, `report`, `backtest`, `options_backtest`,
+Ten read-only-by-default tools: `scan`, `research`, `report`, `backtest`, `options_backtest`,
 `factors`, `record_stats`, `health`, `list_strategies`, `strategy_backtest`.
 
 This fits the architecture unusually well, and not by luck. MCP means the model

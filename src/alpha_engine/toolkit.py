@@ -31,7 +31,10 @@ A fifth, added when the strategy layer landed:
 
 from __future__ import annotations
 
+import hashlib
+import inspect
 import json
+from pathlib import Path
 from typing import Any, Callable
 
 DISCLAIMER = (
@@ -126,6 +129,87 @@ def tool_report(args: dict[str, Any]) -> dict[str, Any]:
     if error:
         return error
     return _dump(build_report(series, market.value))
+
+
+def tool_research(args: dict[str, Any]) -> dict[str, Any]:
+    """Show dated evidence for a stock without generating a new signal or fetching data."""
+    from datetime import timedelta
+
+    from alpha_engine.analyzers.fundamentals import analyze_fundamentals
+    from alpha_engine.analyzers.sentiment import analyze_sentiment, score_headline
+    from alpha_engine.cache.interface import is_stale
+    from alpha_engine.validation.recorder import read_records
+
+    asset, market = _resolve(args["asset"], args.get("market"))
+    cache = _cache()
+    series, price_stale = cache.get_price(asset, "1d")
+    if series is None or not series.candles:
+        return {
+            "error": f"no cached daily prices for {asset}",
+            "hint": f"run `./start.sh scan {asset} --days 365 --no-record` to cache prices",
+        }
+
+    last = series.candles[-1].ts
+    first = last - timedelta(days=args.get("days", 180))
+    candles = [c.model_dump(mode="json") for c in series.candles if c.ts >= first]
+    fundamentals, fundamentals_stale = cache.get_fundamentals(asset)
+    fundamentals.sort(key=lambda item: (item.available_at or item.ts, item.ts), reverse=True)
+    news, _news_stale = cache.get_news()
+    tagged = [item for item in news if asset in item.asset_tags]
+    tagged.sort(key=lambda item: item.ts, reverse=True)
+    records = [r for r in read_records() if r.signal.asset == asset]
+    latest = max(records, key=lambda r: r.recorded_at, default=None)
+
+    return {
+        "asset": asset,
+        "market": market.value,
+        "price": {
+            "source": "cached daily candles",
+            "provider": series.source,
+            "currency": series.currency,
+            "adjustment_policy": series.adjustment_policy,
+            "fetched_at": series.fetched_at.isoformat(),
+            "last_bar_at": last.isoformat(),
+            "stale": price_stale,
+            "candles": candles,
+        },
+        "fundamentals": {
+            "stale": fundamentals_stale,
+            "periods": [item.model_dump(mode="json") for item in fundamentals[:8]],
+            "analysis": analyze_fundamentals(fundamentals).model_dump(mode="json"),
+            "note": "Reporting period and public availability are different dates.",
+        },
+        "news": {
+            "stale": not tagged or is_stale(tagged[0].ts, "news"),
+            "analysis": analyze_sentiment(tagged, asset=asset).model_dump(mode="json"),
+            "items": [
+                {**item.model_dump(mode="json"), "lexicon_score": score_headline(item.headline)}
+                for item in tagged[:20]
+            ],
+            "note": "Lexicon scores describe headline wording, not future returns.",
+        },
+        "macro": {
+            "series": [
+                {
+                    "id": series_id,
+                    "observations": len(observations),
+                    "latest_at": observations[-1].ts.isoformat() if observations else None,
+                    "stale": stale,
+                }
+                for series_id in ("FEDFUNDS", "CPIAUCSL", "UNRATE")
+                for observations, stale in [cache.get_macro(series_id)]
+            ],
+        },
+        "latest_recorded_signal": (
+            {
+                "recorded_at": latest.recorded_at.isoformat(),
+                "signal": latest.signal.model_dump(mode="json"),
+            }
+            if latest
+            else None
+        ),
+        "note": "Evidence snapshot only. Cached data may be stale or incomplete.",
+    }
 
 
 def tool_backtest(args: dict[str, Any]) -> dict[str, Any]:
@@ -282,7 +366,9 @@ def tool_strategy_backtest(args: dict[str, Any]) -> dict[str, Any]:
     rate. This one asks what the money would have done.
     """
     from alpha_engine.strategy.engine import run_strategy_backtest
+    from alpha_engine.strategy.benchmark import compare_with_buy_hold
     from alpha_engine.strategy.loader import load_strategy
+    from alpha_engine import __version__
 
     asset, market = _resolve(args["asset"], args.get("market"))
     days = args.get("days", 365)
@@ -321,6 +407,62 @@ def tool_strategy_backtest(args: dict[str, Any]) -> dict[str, Any]:
         return {"error": str(e)}
 
     payload = _dump(report)
+    try:
+        strategy_source_sha256 = hashlib.sha256(
+            Path(inspect.getfile(type(strategy))).read_bytes()
+        ).hexdigest()
+    except (OSError, TypeError):
+        strategy_source_sha256 = None
+    timestamps = set(report.timestamps)
+    used = [c for c in series.candles if c.ts in timestamps]
+    snapshot = {
+        "asset": asset,
+        "interval": series.interval.value,
+        "source": series.source,
+        "currency": series.currency,
+        "adjustment_policy": series.adjustment_policy,
+        "candles": [c.model_dump(mode="json") for c in used],
+    }
+    payload["experiment"] = {
+        "engine_version": __version__,
+        "strategy": type(strategy).__name__,
+        "params": strategy.params,
+        "asset": asset,
+        "start_at": report.timestamps[0].isoformat(),
+        "end_at": report.timestamps[-1].isoformat(),
+        "bars": report.bars,
+        "capital": args.get("capital", 100_000.0),
+        "txn_cost_bps": args.get("txn_cost_bps", 2.0),
+        "price_fetched_at": series.fetched_at.isoformat(),
+        "price_source": series.source,
+        "currency": series.currency,
+        "adjustment_policy": series.adjustment_policy,
+        "price_snapshot_sha256": hashlib.sha256(
+            json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest(),
+        "strategy_source_sha256": strategy_source_sha256,
+        "limitations": [
+            (
+                "Synthetic demo candles are not market data"
+                if series.source == "synthetic-demo"
+                else "Historical price adjustment policy is unverified"
+                if series.adjustment_policy == "unverified"
+                else "Historical price adjustments follow the named source policy"
+            ),
+            "Strategy lookahead is sampled, not structurally prevented",
+            "No slippage, liquidity or delisting return model",
+        ],
+    }
+    if report.trade_on == "underlying":
+        payload["benchmarks"] = compare_with_buy_hold(
+            used,
+            report.equity_curve,
+            series.interval,
+            args.get("capital", 100_000.0),
+            args.get("txn_cost_bps", 2.0),
+        )
+    if args.get("include_series"):
+        payload["experiment"]["price_snapshot"] = snapshot
     if report.ruined_at_bar is not None:
         payload["warning"] = (
             f"ACCOUNT WIPED OUT at bar {report.ruined_at_bar}. A compounding "
@@ -340,6 +482,9 @@ def tool_strategy_backtest(args: dict[str, Any]) -> dict[str, Any]:
         for key in ("timestamps", "signals", "confirmed", "position", "equity_curve", "drawdown"):
             payload.pop(key, None)
         payload["series_note"] = "Pass include_series=true for the per-bar arrays."
+        if "benchmarks" in payload:
+            for benchmark in ("buy_and_hold", "risk_matched"):
+                payload["benchmarks"][benchmark].pop("equity_curve")
     return payload
 
 
@@ -389,6 +534,26 @@ TOOLS: list[dict[str, Any]] = [
                 "asset": _ASSET,
                 "market": _MARKET,
                 "days": {"type": "integer", "description": "History window (default 180)"},
+            },
+            "required": ["asset"],
+        },
+    },
+    {
+        "name": "research",
+        "description": (
+            "Read-only evidence pack: cached daily candles, filing-dated fundamentals, "
+            "tagged headlines with deterministic lexicon scores, and the latest recorded "
+            "signal. Shows source dates and staleness; makes no new prediction."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "asset": _ASSET,
+                "market": _MARKET,
+                "days": {
+                    "type": "integer",
+                    "description": "Calendar days of candles (default 180)",
+                },
             },
             "required": ["asset"],
         },
@@ -534,6 +699,7 @@ TOOLS: list[dict[str, Any]] = [
 HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "scan": tool_scan,
     "report": tool_report,
+    "research": tool_research,
     "backtest": tool_backtest,
     "options_backtest": tool_options_backtest,
     "factors": tool_factors,

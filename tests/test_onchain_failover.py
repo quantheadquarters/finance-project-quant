@@ -359,6 +359,7 @@ def test_a_fetcher_returning_a_plain_int_still_records_its_kind(monkeypatch, tmp
     health_file = tmp_path / "health.json"
     monkeypatch.setattr(health, "DEFAULT_PATH", health_file)
     monkeypatch.setattr("alpha_engine.ingestion.rss.fetch_all", lambda cache=None: [])
+    monkeypatch.setattr("alpha_engine.ingestion.finnhub_news.has_key", lambda: False)
 
     report = engine.refresh_context(Cache(LocalStore(tmp_path)), ("BTC",), kinds={"news"})
     assert report.item_counts["news"] == 0

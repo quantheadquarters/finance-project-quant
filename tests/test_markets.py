@@ -92,6 +92,29 @@ def test_yahoo_parse_raises_on_empty_result():
         _parse_chart({"chart": {"error": None, "result": []}})
 
 
+def test_yahoo_fetch_records_provider_and_reported_currency(monkeypatch, tmp_path):
+    from alpha_engine.cache.interface import Cache, LocalStore
+    from alpha_engine.ingestion import yahoo
+
+    payload = _yahoo_payload([1577836800, 1577923200], [300.0, 301.5])
+    payload["chart"]["result"][0]["meta"] = {"currency": "USD"}
+
+    class Response:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return payload
+
+    monkeypatch.setattr(yahoo.net, "get_with_retry", lambda *args, **kwargs: Response())
+    series = yahoo.fetch_daily("AAPL", cache=Cache(LocalStore(tmp_path)))
+    assert (series.source, series.currency, series.adjustment_policy) == (
+        "yahoo",
+        "USD",
+        "unverified",
+    )
+
+
 # --- fred parsing -------------------------------------------------------------
 
 
@@ -107,6 +130,23 @@ def test_fred_parse_normalizes_and_skips_missing():
     assert [o.value for o in obs] == [3.1, 3.4]
     assert all(o.series_id == "CPIAUCSL" and o.source == "fred" for o in obs)
     assert obs[0].ts.tzinfo is not None
+
+
+def test_fred_request_error_never_prints_api_key(monkeypatch, tmp_path):
+    from alpha_engine.cache.interface import Cache, LocalStore
+    from alpha_engine.ingestion import fred
+
+    secret = "test-secret-token"
+
+    class FailedResponse:
+        def raise_for_status(self):
+            raise RuntimeError(f"HTTP 403 for https://api.stlouisfed.org/?api_key={secret}")
+
+    monkeypatch.setattr(fred.net, "get", lambda *args, **kwargs: FailedResponse())
+    with pytest.raises(RuntimeError) as error:
+        fred.fetch_series("FEDFUNDS", api_key=secret, cache=Cache(LocalStore(tmp_path)))
+    assert secret not in str(error.value)
+    assert "[REDACTED]" in str(error.value)
 
 
 # --- equity trend -------------------------------------------------------------

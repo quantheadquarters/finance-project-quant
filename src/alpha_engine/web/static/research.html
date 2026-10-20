@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark light" />
+  <title>Research Workbench — Alpha Engine</title>
+  <script src="/static/theme-init.js"></script>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="bg-wash"></div>
+  <div class="wrap research-wrap">
+    <header>
+      <div class="brand"><div class="brand-mark">&alpha;</div><div><h1>Research Workbench</h1><div class="tagline">Inspect evidence. Test your own rules.</div></div></div>
+      <div class="header-tools">
+        <a href="/" class="home-link">Home</a>
+        <a href="/dashboard" class="home-link">Track record</a>
+        <button id="theme-btn" class="icon-btn" type="button" title="Toggle theme" aria-label="Toggle light/dark theme"><svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4-1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+      </div>
+    </header>
+
+    <p class="landing-lede">Apple is the first worked example. Prices, filings, and headlines are shown with their dates and gaps. The strategies below are teaching baselines, not demonstrated alpha.</p>
+    <form id="research-form" class="research-controls">
+      <label for="asset-input">Stock ticker</label>
+      <input id="asset-input" name="asset" value="AAPL" maxlength="24" pattern="[A-Za-z0-9._&amp;-]+" required />
+      <button type="submit">Load research</button>
+      <button id="demo-select" type="button">Use offline demo</button>
+    </form>
+    <p id="research-status" role="status">Loading cached evidence…</p>
+    <section class="card research-setup" aria-labelledby="setup-title">
+      <div class="card-head"><div class="label" id="setup-title">Your research inputs</div></div>
+      <p class="research-note">This page reads the server's cache. Missing inputs stay visible; API keys are never sent to this page.</p>
+      <div id="source-status" class="research-list" aria-live="polite"></div>
+      <p class="research-note">First run: <code>./start.sh scan AAPL --days 365 --no-record</code>, then <code>./start.sh ingest AAPL</code>. For a network-free example, run <code>.venv/bin/python scripts/load_demo.py</code> and choose DEMO. Reload after the commands finish.</p>
+    </section>
+
+    <div class="grid">
+      <section class="card span-12"><div class="card-head"><div class="label">Daily price candles <span class="label-hint" id="price-meta"></span></div></div><div id="price-chart" class="research-chart" role="img" aria-label="Daily candlestick chart"></div><p class="research-note" id="price-note"></p></section>
+      <section class="card span-6"><div class="card-head"><div class="label">Company fundamentals</div></div><div id="fundamentals" class="research-list"></div></section>
+      <section class="card span-6"><div class="card-head"><div class="label">Company headlines</div></div><div id="headlines" class="research-list"></div></section>
+      <section class="card span-12"><div class="card-head"><div class="label">Engine view <span class="label-hint">recorded research signal, not the answer</span></div></div><div id="signal-view" class="research-list"></div></section>
+
+      <section class="card span-12">
+        <div class="card-head"><div class="label">Build from five example rules <span class="label-hint">trade-level backtest on cached daily prices</span></div></div>
+        <p class="research-note">Start with SMA crossover: it enters when a short moving average crosses a longer one. Change a length, then see whether it beats buying and holding over the same bars. A signal at one close fills on the next bar. Any reported lookahead violation voids the results.</p>
+        <button id="try-example" type="button">Try the first example</button>
+        <form id="strategy-form" class="research-controls"><label for="strategy-select">Example rule</label><select id="strategy-select"></select><div id="strategy-params" class="research-params"></div><button type="submit">Run backtest</button></form>
+        <div id="strategy-result" class="research-list" role="status"></div>
+        <button id="download-experiment" type="button" hidden>Download reproducible result (JSON)</button>
+        <p class="research-note">To create your own rule, copy a built-in strategy into <code>strategies/</code>, edit <code>generate_signals</code>, then run <code>./start.sh strategy-backtest AAPL --strategy YourClass --chart aapl.html</code>. The generated report uses TradingView Lightweight Charts for visual verification. Strategy files are loaded locally; the web API never accepts Python code.</p>
+      </section>
+      <section id="options-section" class="card span-12"><div class="card-head"><div class="label">Stock options research <span class="label-hint">model-priced illustration</span></div></div><p class="research-note">Compare the same engine signal on shares and a simulated at-the-money option. Option prices come from a model, not historical option quotes or executable fills.</p><button id="options-button" type="button">Run options illustration</button><div id="options-result" class="research-list" role="status"></div></section>
+    </div>
+    <footer><div class="footer-disclaimer">Research and education only. Not financial advice or a recommendation. Backtests describe assumptions and past data; they do not predict future returns. The example signals have no proven edge.</div></footer>
+  </div>
+  <script src="/static/theme-toggle.js"></script>
+  <script src="/static/research.js"></script>
+</body>
+</html>

@@ -309,6 +309,21 @@ def test_finnhub_http_error_returns_empty(monkeypatch):
     assert finnhub_news.fetch_company_news("AAPL") == []
 
 
+def test_finnhub_exception_does_not_print_key(monkeypatch, capsys):
+    key = "private-test-key"
+    monkeypatch.setattr(finnhub_news, "has_key", lambda: True)
+    monkeypatch.setenv("FINNHUB_API_KEY", key)
+
+    def fail(*args, **kwargs):
+        raise ValueError(f"Bad response from https://finnhub.io/?token={key}")
+
+    monkeypatch.setattr(finnhub_news.net, "get", fail)
+    assert finnhub_news.fetch_company_news("AAPL", store=False) == []
+    error = capsys.readouterr().err
+    assert key not in error
+    assert "[REDACTED]" in error
+
+
 def test_finnhub_wrong_response_shape_fails_loudly(monkeypatch, capsys):
     class FakeResp:
         status_code = 200

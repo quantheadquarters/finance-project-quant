@@ -41,6 +41,9 @@ class PriceSeries(BaseModel):
     interval: Interval
     candles: list[Candle] = Field(default_factory=list)
     fetched_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    source: str | None = None
+    currency: str | None = None
+    adjustment_policy: str = "unverified"
 
     def closes(self) -> list[float]:
         return [c.close for c in self.candles]

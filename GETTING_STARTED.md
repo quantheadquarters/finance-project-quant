@@ -59,7 +59,7 @@ First, download the code. Paste these **one line at a time** — the first
 downloads the project, the second moves into its folder:
 
 ```bash
-git clone https://github.com/infoshubhjain/finance-project-quant.git
+git clone https://github.com/quantheadquarters/finance-project-quant.git
 cd finance-project-quant
 ```
 

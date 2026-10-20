@@ -313,15 +313,16 @@ class LocalStore:
         return datetime.fromtimestamp(p.stat().st_mtime, tz=timezone.utc) if p.exists() else None
 
     def read_all_collection(self, kind: str) -> list[Any]:
-        """Every bucket of a kind, concatenated. This is what an analyzer wants:
-        all the news, regardless of which feed carried it."""
-        model, _ = self._COLLECTIONS[kind]
+        """Read every bucket; count a headline once if it appears in two buckets."""
+        model, key_of = self._COLLECTIONS[kind]
         out: list[Any] = []
         for p in sorted((self.root / kind).glob("*.json")):
             try:
                 out.extend(model.model_validate(r) for r in json.loads(p.read_text()))
             except Exception as e:  # noqa: BLE001 - one bad file must not hide the rest
                 _warn_corrupt(p, e)
+        if kind == "news":
+            return list({key_of(item): item for item in out}.values())
         return out
 
 

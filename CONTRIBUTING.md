@@ -37,7 +37,14 @@ Put it in `analyzers/`, make it a pure function from a cache model to a
 pip install -e ".[dev]"
 pytest -q          # tests must pass
 ruff check .       # lint must be clean
+ruff format --check .
 ```
+
+Start with [Build your own model](docs/BUILD_YOUR_MODEL.md) for a complete
+strategy, factor, or data-provider path. A useful first PR can improve the
+guided experiment, a source adapter's diagnostics, or a network-free fixture.
+Include the data source, dates, benchmark, costs, and negative results when a
+change makes a research claim. Do not commit `.env` or downloaded market data.
 
 ## Scope and honesty
 

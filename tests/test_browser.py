@@ -32,7 +32,7 @@ playwright_api = pytest.importorskip(
 )
 
 VIEWPORTS = [("desktop", 1440, 900), ("laptop", 1024, 768), ("mobile", 390, 844)]
-PAGES = ["/", "/dashboard", "/terminal"]
+PAGES = ["/", "/dashboard", "/terminal", "/research"]
 
 #: An element wider than the viewport is only a bug when nothing between it and
 #: the root can scroll. A wide table inside `overflow-x: auto` is a deliberate,
@@ -190,6 +190,40 @@ def test_both_themes_keep_text_visible(browser, server):
             assert not invisible, f"{theme}: text the same colour as its background: {invisible}"
         finally:
             ctx.close()
+
+
+def test_research_guided_demo_downloads_reproducible_result(browser, server, tmp_path, monkeypatch):
+    import json
+    import runpy
+    from pathlib import Path
+
+    monkeypatch.setenv("ALPHA_DATA_DIR", str(tmp_path))
+    script = Path(__file__).resolve().parents[1] / "scripts" / "load_demo.py"
+    runpy.run_path(str(script))["main"]()
+    ctx = browser.new_context(accept_downloads=True)
+    page = ctx.new_page()
+    errors = []
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    try:
+        page.goto(server + "/research")
+        page.get_by_role("button", name="Use offline demo").click()
+        page.get_by_text("DEMO evidence loaded", exact=False).wait_for()
+        assert page.locator("#options-section").is_hidden()
+        assert "invented candles" in page.locator("#source-status").inner_text()
+        page.get_by_role("button", name="Try the first example").click()
+        page.get_by_role("button", name="Download reproducible result (JSON)").wait_for()
+        assert "buy and hold" in page.locator("#strategy-result").inner_text().lower()
+        with page.expect_download() as event:
+            page.get_by_role("button", name="Download reproducible result (JSON)").click()
+        destination = tmp_path / "experiment.json"
+        event.value.save_as(destination)
+        result = json.loads(destination.read_text())
+        assert result["experiment"]["price_source"] == "synthetic-demo"
+        assert "Synthetic demo candles are not market data" in result["experiment"]["limitations"]
+        assert len(result["experiment"]["price_snapshot"]["candles"]) == 260
+        assert not errors
+    finally:
+        ctx.close()
 
 
 # --------------------------------------------------------------------------

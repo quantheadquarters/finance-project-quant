@@ -39,3 +39,16 @@ jobs:
         # Coverage is reported for visibility, not gated: a hard threshold on
         # a young codebase invites test-padding instead of honest tests.
         run: pytest -q --tb=short --cov=alpha_engine --cov-report=term
+      - name: Check installed web assets
+        if: matrix.python-version == '3.12'
+        run: |
+          python -m pip wheel . --no-deps --wheel-dir dist
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          with ZipFile(next(Path('dist').glob('alpha_engine-*.whl'))) as wheel:
+              names = set(wheel.namelist())
+          for asset in ('index.html', 'research.html', 'research.js', 'style.css'):
+              assert f'alpha_engine/web/static/{asset}' in names, asset
+          PY

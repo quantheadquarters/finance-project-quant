@@ -64,19 +64,23 @@ def fetch_series(
             "and export it (see .env.example). Macro context is skipped without it."
         )
 
-    resp = net.get(
-        _BASE,
-        params={
-            "series_id": series_id,
-            "api_key": key,
-            "file_type": "json",
-            "sort_order": "desc",
-            "limit": str(limit),
-        },
-        timeout=20,
-    )
-    resp.raise_for_status()
-    obs = _parse_observations(series_id, resp.json())
+    try:
+        resp = net.get(
+            _BASE,
+            params={
+                "series_id": series_id,
+                "api_key": key,
+                "file_type": "json",
+                "sort_order": "desc",
+                "limit": str(limit),
+            },
+            timeout=20,
+        )
+        resp.raise_for_status()
+        obs = _parse_observations(series_id, resp.json())
+    except Exception as exc:
+        # net.Response includes the URL in errors, and FRED puts its key in the URL.
+        raise RuntimeError(f"FRED {series_id}: {str(exc).replace(key, '[REDACTED]')}") from None
     # write_macro merges and sorts by timestamp internally; no pre-sort needed here.
 
     cache.put_macro(obs)

@@ -345,7 +345,7 @@ def refresh_context(
         fetched = rss.fetch_all(cache=cache)
         for asset in assets:
             if finnhub_news.has_key():
-                fetched.extend(finnhub_news.fetch_company_news(asset, cache=cache))
+                fetched.extend(finnhub_news.fetch_company_news(asset, store=False))
         # Score once here rather than on every scan. Sentiment is deterministic,
         # so a cached score is the same score forever — and this is what keeps
         # the analyze path free of repeated work.

@@ -77,7 +77,9 @@ def fetch_company_news(
             return []
         rows = resp.json()
     except Exception as e:  # noqa: BLE001 - optional context, never fatal
-        print(f"[finnhub] fetch failed for {asset}: {e}", file=sys.stderr)
+        # Response parsing errors can include the request URL, which carries the API key.
+        detail = str(e).replace(os.environ["FINNHUB_API_KEY"], "[REDACTED]")
+        print(f"[finnhub] fetch failed for {asset}: {detail}", file=sys.stderr)
         return []
 
     if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
