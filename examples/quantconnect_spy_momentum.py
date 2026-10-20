@@ -26,6 +26,16 @@ def rank_closes(closes_by_symbol):
     return [symbol for _, symbol in ranked[:2]]
 
 
+def closes_from_slices(history, members):
+    """Collect daily closes from QuantConnect's iterable Slice history."""
+    closes = {symbol: [] for symbol in members}
+    for daily_slice in history:
+        for symbol, bar in daily_slice.bars.items():
+            if symbol in closes:
+                closes[symbol].append(float(bar.close))
+    return closes
+
+
 class TenBpsFeeModel(FeeModel):
     def get_order_fee(self, parameters):
         amount = abs(parameters.order.quantity) * parameters.security.price * 0.001
@@ -98,17 +108,15 @@ class HistoricalSPYMomentum(QCAlgorithm):
             fill_forward=False,
             data_normalization_mode=DataNormalizationMode.SCALED_RAW,
         )
-        if history.empty:
+        history_closes = closes_from_slices(history, members)
+        if not any(history_closes.values()):
             self.error("No point-in-time price history for SPY members")
             return
-        closes = {}
-        for symbol in members:
-            try:
-                values = history.loc[symbol]["close"].tail(253).tolist()
-            except KeyError:
-                continue
-            if len(values) == 253 and self.securities[symbol].is_tradable:
-                closes[symbol] = values
+        closes = {
+            symbol: values[-253:]
+            for symbol, values in history_closes.items()
+            if len(values) >= 253 and self.securities[symbol].is_tradable
+        }
         selected = rank_closes(closes)
         self._rebalances += 1
         self.debug(
